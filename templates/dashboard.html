@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Hotel Manager Pro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-calendar-check"></i> Reservas Hoje</h5>
+                <p class="card-text fs-2">{{ total_reservas_hoje }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-graph-up-arrow"></i> Taxa de Ocupação</h5>
+                <p class="card-text fs-2">{{ taxa_ocupacao }}%</p>
+            </div>
+        </div>
+    </div>
+    <!-- Adicionar mais cartões de estatísticas aqui -->
+</div>
+
+<p>Selecione uma opção no menu lateral para continuar a gerir o seu estabelecimento.</p>
+
+{% endblock %}
+```
+
+#### **Limpeza do Código (Opcional, mas Recomendado)**
+Nos seus ficheiros `models.py` e `views.py`, você tinha o código antigo comentado no final. Removi essas secções para manter os ficheiros limpos e evitar confusão. O código que ficou é a versão mais recente e correta que você forneceu.
+
+---
+
+### **3. Próximos Passos (Como Executar)**
+
+Agora que os ficheiros estão corrigidos, siga esta sequência no seu terminal (com o ambiente `(venv)` ativo):
+
+**1. Crie os Ficheiros de Migração:** O Django precisa de preparar as alterações para a base de dados.
+```sh
+python manage.py makemigrations
+```
+
+**2. Aplique as Alterações à Base de Dados:** Este comando irá criar as tabelas (`hotel_db` já deve existir).
+```sh
+python manage.py migrate
+```
+
+**3. Crie um Utilizador Administrador:** Para poder aceder ao sistema.
+```sh
+python manage.py createsuperuser
+```
+(Siga as instruções para criar o seu utilizador e senha.)
+
+**4. Inicie o Servidor:**
+```sh
+python manage.py runserver
