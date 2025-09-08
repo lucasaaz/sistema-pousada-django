@@ -1,7 +1,10 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/base.html (ATUALIZANDO)                                 -->
+<!-- DESCRIÇÃO: Atualiza o link do menu "Clientes" para ser dinâmico.           -->
+<!-- ========================================================================== -->
 <!doctype html>
 <html lang="pt-br">
 <head>
-    <!-- CORREÇÃO: O charset correto é utf-8 -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Hotel Manager Pro{% endblock %}</title>
@@ -13,32 +16,12 @@
     
     <!-- Estilo customizado -->
     <style>
-        body {
-            display: flex;
-            min-height: 100vh;
-            flex-direction: column;
-        }
-        .main-container {
-            display: flex;
-            flex: 1;
-        }
-        .sidebar {
-            width: 280px;
-            background-color: #f8f9fa;
-            border-right: 1px solid #dee2e6;
-        }
-        .content {
-            flex: 1;
-            padding: 2rem;
-        }
-        .sidebar .nav-link {
-            color: #333;
-        }
-        .sidebar .nav-link.active,
-        .sidebar .nav-link:hover {
-            color: #007bff;
-            background-color: #e9ecef;
-        }
+        body { display: flex; min-height: 100vh; flex-direction: column; font-family: 'Inter', sans-serif;  }
+        .main-container { display: flex; flex: 1; }
+        .sidebar { width: 280px; background-color: #f8f9fa; border-right: 1px solid #dee2e6; }
+        .content { flex: 1; padding: 2rem; }
+        .sidebar .nav-link { color: #333; }
+        .sidebar .nav-link.active, .sidebar .nav-link:hover { color: #007bff; background-color: #e9ecef; }
     </style>
 </head>
 <body>
@@ -47,7 +30,6 @@
     <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6" href="{% url 'dashboard' %}">Hotel Manager Pro</a>
     <div class="navbar-nav">
         <div class="nav-item text-nowrap">
-            <!-- Futuramente, este link levará para a página de logout -->
             <a class="nav-link px-3" href="#">Sair</a>
         </div>
     </div>
@@ -58,41 +40,56 @@
         <div class="position-sticky pt-3">
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <!-- CORREÇÃO: Link dinâmico para a dashboard -->
-                    <a class="nav-link active" aria-current="page" href="{% url 'dashboard' %}">
+                    <a class="nav-link" aria-current="page" href="{% url 'dashboard' %}">
                         <i class="bi bi-speedometer2"></i> Dashboard
                     </a>
                 </li>
                 <li class="nav-item">
-                    <!-- NOTA: Estes links precisarão de URLs definidas no futuro -->
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'reserva_list' %}">
                         <i class="bi bi-calendar-check"></i> Reservas
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'cliente_list' %}">
                         <i class="bi bi-people"></i> Clientes
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'acomodacao_list' %}">
                         <i class="bi bi-building"></i> Acomodações
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'item_estoque_list' %}">
                         <i class="bi bi-box-seam"></i> Estoque
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'vaga_estacionamento_list' %}">
+                        <i class="bi bi-p-square"></i> Estacionamento
+                    </a>
+                </li>
                  <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'relatorio_acomodacoes' %}">
                         <i class="bi bi-graph-up"></i> Relatórios
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'financeiro' %}">
+                        <i class="bi bi-currency-dollar"></i> Financeiro
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="collapse" href="#configuracoesSubmenu" role="button" aria-expanded="false" aria-controls="configuracoesSubmenu">
                         <i class="bi bi-gear"></i> Configurações
                     </a>
+                    <div class="collapse" id="configuracoesSubmenu">
+                        <ul class="nav flex-column submenu">
+                            <li class="nav-item"><a class="nav-link" href="{% url 'configuracao_hotel' %}">Dados do Hotel</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'forma_pagamento_list' %}">Formas de Pagamento</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'funcionario_list' %}">Funcionários</a></li>
+                        </ul>
+                    </div>
                 </li>
             </ul>
         </div>
@@ -107,8 +104,6 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- Scripts específicos de cada página -->
 {% block scripts %}{% endblock %}
 
 </body>

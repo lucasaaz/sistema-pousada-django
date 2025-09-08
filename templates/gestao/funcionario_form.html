@@ -1,0 +1,34 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/funcionario_form.html (NOVO FICHEIRO)            -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Formulário de Funcionário{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{% if object %}Editar Funcionário{% else %}Adicionar Novo Funcionário{% endif %}</h1>
+</div>
+<form method="post">
+    {% csrf_token %}
+    
+    {% if form.errors %}
+        <div class="alert alert-danger">
+            <strong>Por favor, corrija os erros abaixo:</strong>
+            <ul>
+                {% for field in form %}
+                    {% if field.errors %}
+                        <li>{{ field.label }}: {{ field.errors|striptags }}</li>
+                    {% endif %}
+                {% endfor %}
+                {% if form.non_field_errors %}
+                    <li>{{ form.non_field_errors|striptags }}</li>
+                {% endif %}
+            </ul>
+        </div>
+    {% endif %}
+    
+    {{ form.as_p }}
+    <hr>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    <a href="{% url 'funcionario_list' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

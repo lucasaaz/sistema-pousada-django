@@ -1,0 +1,18 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/item_estoque_confirm_delete.html (NOVO)          -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Confirmar Exclusão de Item{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Confirmar Exclusão</h1>
+</div>
+<p>Você tem certeza que deseja excluir o item de estoque <strong>"{{ item.nome }}"</strong>?</p>
+<p class="text-danger">Esta ação não pode ser desfeita.</p>
+<form method="post">
+    {% csrf_token %}
+    <hr>
+    <button type="submit" class="btn btn-danger">Sim, confirmar exclusão</button>
+    <a href="{% url 'item_estoque_list' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

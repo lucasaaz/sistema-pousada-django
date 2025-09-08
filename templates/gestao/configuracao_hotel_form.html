@@ -1,0 +1,24 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/configuracao_hotel_form.html (NOVO FICHEIRO)     -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Configurações do Hotel{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Configurações Gerais do Hotel</h1>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    {{ form.as_p }}
+
+    {% if form.instance.logo %}
+        <p>Logo Atual:</p>
+        <img src="{{ form.instance.logo.url }}" alt="Logo atual" style="max-height: 100px; border: 1px solid #ccc; padding: 5px; margin-bottom: 1rem;">
+    {% endif %}
+
+    <hr>
+    <button type="submit" class="btn btn-primary">Salvar Configurações</button>
+</form>
+{% endblock %}

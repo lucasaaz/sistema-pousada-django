@@ -1,12 +1,89 @@
 # ==============================================================================
-# ARQUIVO: hotel_project/gestao/urls.py
-# DESCRIÇÃO: URLs específicas do app de gestão.
+# ARQUIVO: gestao/urls.py (ATUALIZADO)
+# DESCRIÇÃO: Adiciona os links para as novas páginas de clientes.
 # ==============================================================================
 from django.urls import path
-from .views import dashboard_view, consulta_disponibilidade_view
+from . import views
+from .views import (
+    dashboard_view, 
+    consulta_disponibilidade_view,
+    cliente_list_view,
+    cliente_create_view,
+    cliente_update_view,     
+    cliente_delete_view,     
+)
 
 urlpatterns = [
+    # URLs do Dashboard
     path('', dashboard_view, name='dashboard'),
     path('api/consulta-disponibilidade/', consulta_disponibilidade_view, name='consulta_disponibilidade'),
-    # Adicionar outras URLs aqui: /clientes, /reservas, /checkin, etc.
+    
+    # URLs para Clientes
+    path('clientes/', cliente_list_view, name='cliente_list'),
+    path('clientes/adicionar/', cliente_create_view, name='cliente_add'),
+    path('clientes/editar/<int:pk>/', cliente_update_view, name='cliente_edit'),      
+    path('clientes/excluir/<int:pk>/', cliente_delete_view, name='cliente_delete'),   
+
+    # URLs para Tipos de Acomodação
+    path('tipos-acomodacao/', views.TipoAcomodacaoListView.as_view(), name='tipo_acomodacao_list'),
+    path('tipos-acomodacao/adicionar/', views.TipoAcomodacaoCreateView.as_view(), name='tipo_acomodacao_add'),
+    path('tipos-acomodacao/editar/<int:pk>/', views.TipoAcomodacaoUpdateView.as_view(), name='tipo_acomodacao_edit'),
+    path('tipos-acomodacao/excluir/<int:pk>/', views.TipoAcomodacaoDeleteView.as_view(), name='tipo_acomodacao_delete'),
+
+    # URLs para Acomodações
+    path('acomodacoes/', views.AcomodacaoListView.as_view(), name='acomodacao_list'),
+    path('acomodacoes/adicionar/', views.AcomodacaoCreateView.as_view(), name='acomodacao_add'),
+    path('acomodacoes/editar/<int:pk>/', views.AcomodacaoUpdateView.as_view(), name='acomodacao_edit'),
+    path('acomodacoes/excluir/<int:pk>/', views.AcomodacaoDeleteView.as_view(), name='acomodacao_delete'),
+
+    # URLs para Reservas
+    path('reservas/', views.ReservaListView.as_view(), name='reserva_list'),
+    path('reservas/adicionar/', views.ReservaCreateView.as_view(), name='reserva_add'),
+    path('reservas/<int:pk>/', views.ReservaDetailView.as_view(), name='reserva_detail'),
+    path('reservas/editar/<int:pk>/', views.ReservaUpdateView.as_view(), name='reserva_edit'),
+    path('reservas/cancelar/<int:pk>/', views.ReservaDeleteView.as_view(), name='reserva_delete'),
+    
+    # URLs para as ações de check-in e check-out
+    path('reservas/checkin/<int:pk>/', views.fazer_checkin, name='fazer_checkin'),
+    path('reservas/checkout/<int:pk>/', views.fazer_checkout, name='fazer_checkout'),
+    path('reservas/<int:pk>/imprimir-contrato/', views.imprimir_contrato_checkin, name='imprimir_contrato_checkin'),
+
+    # URLs para a Gestão de Estoque
+    path('estoque/', views.ItemEstoqueListView.as_view(), name='item_estoque_list'),
+    path('estoque/adicionar/', views.ItemEstoqueCreateView.as_view(), name='item_estoque_add'),
+    path('estoque/editar/<int:pk>/', views.ItemEstoqueUpdateView.as_view(), name='item_estoque_edit'),
+    path('estoque/excluir/<int:pk>/', views.ItemEstoqueDeleteView.as_view(), name='item_estoque_delete'),
+
+    # URLs para Frigobar e Consumo
+    path('acomodacoes/<int:acomodacao_pk>/frigobar/', views.frigobar_detail_view, name='frigobar_detail'),
+    path('frigobar/remover-item/<int:item_frigobar_pk>/', views.remover_item_frigobar, name='remover_item_frigobar'),
+    path('reservas/<int:reserva_pk>/adicionar-consumo/', views.consumo_create_view, name='consumo_add'),
+
+    # URLs para Pagamentos e Formas de Pagamento
+    path('pagamentos/formas/', views.FormaPagamentoListView.as_view(), name='forma_pagamento_list'),
+    path('pagamentos/formas/adicionar/', views.FormaPagamentoCreateView.as_view(), name='forma_pagamento_add'),
+    path('pagamentos/formas/editar/<int:pk>/', views.FormaPagamentoUpdateView.as_view(), name='forma_pagamento_edit'),
+    path('pagamentos/formas/excluir/<int:pk>/', views.FormaPagamentoDeleteView.as_view(), name='forma_pagamento_delete'),
+    path('reservas/<int:reserva_pk>/adicionar-pagamento/', views.pagamento_create_view, name='pagamento_add'),
+
+    # URLs para Vagas de Estacionamento
+    path('estacionamento/', views.VagaEstacionamentoListView.as_view(), name='vaga_estacionamento_list'),
+    path('estacionamento/adicionar/', views.VagaEstacionamentoCreateView.as_view(), name='vaga_estacionamento_add'),
+    path('estacionamento/editar/<int:pk>/', views.VagaEstacionamentoUpdateView.as_view(), name='vaga_estacionamento_edit'),
+    path('estacionamento/excluir/<int:pk>/', views.VagaEstacionamentoDeleteView.as_view(), name='vaga_estacionamento_delete'),
+
+    # URLs para Funcionários
+    path('funcionarios/', views.FuncionarioListView.as_view(), name='funcionario_list'),
+    path('funcionarios/adicionar/', views.FuncionarioCreateView.as_view(), name='funcionario_add'),
+    path('funcionarios/editar/<int:pk>/', views.FuncionarioUpdateView.as_view(), name='funcionario_edit'),
+    path('funcionarios/status/<int:pk>/', views.toggle_funcionario_status, name='funcionario_toggle_status'),
+
+    # URLs para Configurações do Hotel
+    path('configuracoes/hotel/', views.configuracao_hotel_view, name='configuracao_hotel'),
+
+    # URLs para Relatórios
+    path('relatorios/acomodacoes/', views.relatorio_acomodacoes_view, name='relatorio_acomodacoes'),
+
+    # URL para o Dashboard Financeiro
+    path('financeiro/', views.financeiro_dashboard_view, name='financeiro'),
 ]

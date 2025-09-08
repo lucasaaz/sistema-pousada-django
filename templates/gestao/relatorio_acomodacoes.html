@@ -1,0 +1,133 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/relatorio_acomodacoes.html (ATUALIZADO)          -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Relatórios e Análises{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Relatórios e Análises</h1>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="my-0">Relatório de Acomodações Mais Alugadas</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Acomodação</th>
+                        <th>Tipo</th>
+                        <th>Total de Reservas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in acomodacoes_ranking %}
+                    <tr>
+                        <td>{{ item.acomodacao__numero }}</td>
+                        <td>{{ item.acomodacao__tipo__nome }}</td>
+                        <td>{{ item.total_reservas }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">Nenhum dado disponível.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="my-0">Extrato de Pagamentos (Check-outs Finalizados)</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            {% for item in relatorio_pagamentos %}
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between">
+                    <span>
+                        <i class="bi bi-person-circle me-2"></i>Hóspede: <strong>{{ item.reserva.cliente.nome_completo }}</strong>
+                    </span>
+                    <span>
+                        <i class="bi bi-door-closed me-2"></i>Acomodação: <strong>{{ item.reserva.acomodacao.numero }}</strong>
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Check-in: {{ item.reserva.data_checkin|date:"d/m/Y" }} | 
+                        Check-out: {{ item.reserva.data_checkout|date:"d/m/Y" }}
+                    </p>
+                    
+                    <!-- Tabela de Pagamentos -->
+                    <h6>Pagamentos:</h6>
+                    <table class="table table-bordered table-sm mb-3">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Valor</th>
+                                <th>Forma de Pagamento</th>
+                                <th>Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pagamento in item.pagamentos %}
+                            <tr>
+                                <td>{{ pagamento.data_pagamento|date:"d/m/Y" }}</td>
+                                <td>R$ {{ pagamento.valor|floatformat:2 }}</td>
+                                <td>{{ pagamento.forma_pagamento.nome }}</td>
+                                <td>{{ pagamento.descricao }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Nenhum pagamento registrado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- Tabela de Consumos -->
+                    <h6>Consumos:</h6>
+                    <table class="table table-bordered table-sm mb-3">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Quantidade</th>
+                                <th>Preço Unitário</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for consumo in item.consumos %}
+                            <tr>
+                                <td>{{ consumo.item.nome }}</td>
+                                <td>{{ consumo.quantidade }}</td>
+                                <td>R$ {{ consumo.preco_unitario|floatformat:2 }}</td>
+                                <td>{{ consumo.data_consumo|date:"d/m/Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Nenhum consumo registrado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- Resumo -->
+                    <div class="d-flex justify-content-end fw-bold">
+                        <span class="me-3">Total Consumo: R$ {{ item.reserva.valor_consumo|floatformat:2 }}</span>
+                        <span class="me-3">Valor da Reserva: R$ {{ item.reserva.valor_total|floatformat:2 }}</span>
+                        <span>Total Pago: R$ {{ item.total_pago|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-center">Nenhum check-out finalizado encontrado para gerar o extrato.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

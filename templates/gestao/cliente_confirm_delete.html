@@ -1,0 +1,38 @@
+<!-- ============================================================================= -->
+<!-- ARQUIVO: templates/gestao/cliente_confirm_delete.html (NOVO)                -->
+<!-- DESCRIÇÃO: Página de confirmação para exclusão de um cliente.               -->
+<!-- ============================================================================= -->
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão{% endblock %}
+
+{% block content %}
+<div class="pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h3 text-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        Confirmar Exclusão
+    </h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p>Tem certeza de que deseja <strong>excluir</strong> o cliente abaixo?</p>
+
+        <ul class="list-unstyled mb-4">
+            <li><strong>Nome:</strong> {{ cliente.nome_completo }}</li>
+            <li><strong>CPF:</strong> {{ cliente.cpf }}</li>
+            <li><strong>Telefone:</strong> {{ cliente.telefone }}</li>
+            <li><strong>Email:</strong> {{ cliente.email|default:"-" }}</li>
+        </ul>
+
+        <form method="post" class="d-flex gap-2">
+            {% csrf_token %}
+            <a href="{% url 'cliente_list' %}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i>
+                Sim, excluir
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

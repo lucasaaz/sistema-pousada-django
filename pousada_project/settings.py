@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = 'django-insecure-chave-secreta-de-exemplo' # Em produção, use uma chave segura!
 
-DEBUG = False # Mude para False em produção
+DEBUG = True # Mude para False em produção
 
 ALLOWED_HOSTS = ['*'] # Em produção, coloque seu domínio aqui, ex: ['meuhotel.com']
 
@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     # Nosso app principal
     'gestao',
 ]

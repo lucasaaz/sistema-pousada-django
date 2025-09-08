@@ -1,0 +1,18 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/consumo_form.html (NOVO FICHEIRO)                -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Adicionar Consumo{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Adicionar Consumo à Reserva #{{ reserva.pk }}</h1>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <hr>
+    <button type="submit" class="btn btn-primary">Registar Consumo</button>
+    <a href="{% url 'reserva_detail' reserva.pk %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

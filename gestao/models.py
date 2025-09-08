@@ -5,6 +5,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db.models import Sum
 
 # Módulo: Configurações da Pousada/Hotel
 class ConfiguracaoHotel(models.Model):
@@ -45,6 +46,8 @@ class Acomodacao(models.Model):
     tipo = models.ForeignKey(TipoAcomodacao, on_delete=models.PROTECT)
     valor_diaria = models.DecimalField(max_digits=10, decimal_places=2)
     descricao = models.TextField(null=True, blank=True)
+    capacidade = models.PositiveIntegerField(default=1, help_text="Número máximo de hóspedes.") # NOVO CAMPO
+    qtd_camas = models.PositiveIntegerField(default=1, help_text="Quantidade de camas no quarto.") # NOVO CAMPO
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disponivel')
 
     def __str__(self):
@@ -106,6 +109,34 @@ class Reserva(models.Model):
 
     def __str__(self):
         return f"Reserva de {self.cliente.nome_completo} para {self.acomodacao.numero}"
+    
+    def save(self, *args, **kwargs):
+        """
+        Sobrescreve o método save() para calcular o valor total das diárias
+        sempre que uma reserva é criada ou editada.
+        """
+        self.valor_total_diarias = self.calcular_total_diarias()
+        super().save(*args, **kwargs)
+
+    # Modulo: Cálculo de valores da reserva
+    def calcular_total_diarias(self):
+        """Calcula o valor total das diárias com base nas datas."""
+        if self.data_checkin and self.data_checkout:
+            num_dias = (self.data_checkout - self.data_checkin).days
+            return num_dias * self.acomodacao.valor_diaria
+        return 0
+
+    def total_a_pagar(self):
+        """Calcula o valor total da reserva (diárias + consumo - desconto + extras)."""
+        return self.valor_total_diarias + self.valor_consumo - self.desconto + self.valor_extra
+
+    def total_pago(self):
+        """Calcula o total de pagamentos já efetuados para esta reserva."""
+        return self.pagamentos.aggregate(Sum('valor'))['valor__sum'] or 0
+
+    def saldo_devedor(self):
+        """Calcula o saldo que ainda falta pagar."""
+        return self.total_a_pagar() - self.total_pago()
 
 # Módulo: Consumo durante a estadia
 class Consumo(models.Model):
@@ -134,6 +165,24 @@ class Pagamento(models.Model):
 # Módulo: Funcionários (usa o sistema de usuários do Django)
 # O controle de acesso é feito via Grupos e Permissões no painel /admin.
 # Ex: Grupo "Recepcionista", Grupo "Gerente"
+
+# Módulo: Gestão financeira
+class GastoCategoria(models.Model):
+    """Categorias para agrupar diferentes tipos de gastos (limpeza, manutenção, etc.)."""
+    nome = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.nome
+
+class Gasto(models.Model):
+    descricao = models.CharField(max_length=255)
+    categoria = models.ForeignKey(GastoCategoria, on_delete=models.PROTECT)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data_gasto = models.DateField(default=timezone.now, db_index=True)  # <= index
+
+    def __str__(self):
+        return f"Gasto de R$ {self.valor} em {self.data_gasto.strftime('%d/%m/%Y')} ({self.categoria.nome})"
+
 
 
 

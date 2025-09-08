@@ -1,17 +1,33 @@
 # ==============================================================================
-# ARQUIVO: hotel_project/gestao/admin.py
-# DESCRIÇÃO: Registra os modelos para que apareçam no painel de admin do Django.
+# ARQUIVO: pousada_project/gestao/admin.py
+# DESCRIÇÃO: Regista os modelos para que apareçam no painel de administração.
 # ==============================================================================
 from django.contrib import admin
-# Importar todos os modelos criados
-# from .models import (
-#     ConfiguracaoHotel, Cliente, TipoAcomodacao, Acomodacao,
-#     VagaEstacionamento, ItemEstoque, Frigobar, ItemFrigobar,
-#     Reserva, Consumo, FormaPagamento, Pagamento
-# )
+from .models import (
+    ConfiguracaoHotel,
+    Cliente,
+    TipoAcomodacao,
+    Acomodacao,
+    VagaEstacionamento,
+    ItemEstoque,
+    Frigobar,
+    ItemFrigobar,
+    Reserva,
+    Consumo,
+    FormaPagamento,
+    Pagamento,
+)
 
-# admin.site.register(ConfiguracaoHotel)
-# admin.site.register(Cliente)
-# admin.site.register(Acomodacao)
-# ... e assim por diante para todos os outros modelos.
-# Isso permite gerenciar todos os dados via http://127.0.0.1:8000/admin
+# A forma mais simples de registar os modelos é usando admin.site.register
+admin.site.register(ConfiguracaoHotel)
+admin.site.register(Cliente)
+admin.site.register(TipoAcomodacao)
+admin.site.register(Acomodacao)
+admin.site.register(VagaEstacionamento)
+admin.site.register(ItemEstoque)
+admin.site.register(Frigobar)
+admin.site.register(ItemFrigobar)
+admin.site.register(Reserva)
+admin.site.register(Consumo)
+admin.site.register(FormaPagamento)
+admin.site.register(Pagamento)

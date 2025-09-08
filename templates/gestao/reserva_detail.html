@@ -1,0 +1,108 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/reserva_detail.html (ATUALIZADO)                 -->
+<!-- DESCRIÇÃO: Melhora a lógica dos botões de ação e feedback ao utilizador. -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Detalhes da Reserva{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Detalhes da Reserva #{{ reserva.pk }}</h1>
+    <div class="btn-group me-2">
+        <a href="{% url 'reserva_list' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar para Lista
+        </a>
+        <a href="{% url 'imprimir_contrato_checkin' reserva.pk %}" target="_blank" class="btn btn-sm btn-primary">
+            <i class="bi bi-printer"></i> Imprimir Contrato
+        </a>
+    </div>
+</div>
+
+
+<script>
+    // Este script pode ser removido se o botão for a única forma de impressão.
+    // Ele existe como um exemplo de como fazer a ação via JavaScript.
+    function imprimirContrato() {
+        const url = "{% url 'imprimir_contrato_checkin' reserva.pk %}";
+        window.open(url, '_blank');
+    }
+</script>
+
+<!-- ATENÇÃO: As mensagens de erro/sucesso do check-out aparecerão aqui, pois estão no base.html -->
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Card de Informações da Reserva -->
+        <div class="card mb-4">
+            <div class="card-header">Informações da Reserva</div>
+            <div class="card-body">
+                <p><strong>Cliente:</strong> {{ reserva.cliente.nome_completo }}</p>
+                <p><strong>Acomodação:</strong> {{ reserva.acomodacao }}</p>
+                <p><strong>Check-in:</strong> {{ reserva.data_checkin|date:"d/m/Y" }}</p>
+                <p><strong>Check-out:</strong> {{ reserva.data_checkout|date:"d/m/Y" }}</p>
+                <p><strong>Status:</strong> <span class="badge bg-primary">{{ reserva.get_status_display }}</span></p>
+            </div>
+        </div>
+        <!-- Card de Consumo -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">Consumo
+                {% if reserva.status == 'checkin' %}<a href="{% url 'consumo_add' reserva.pk %}" class="btn btn-sm btn-success"><i class="bi bi-plus-lg"></i> Adicionar Consumo</a>{% endif %}
+            </div>
+            <div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Item</th><th>Qtd.</th><th>Preço Unit.</th><th>Total</th></tr></thead><tbody>{% for consumo in reserva.consumos.all %}<tr><td>{{ consumo.item.nome }}</td><td>{{ consumo.quantidade }}</td><td>R$ {{ consumo.preco_unitario }}</td><td>R$ {{ consumo.total }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center">Nenhum consumo registado.</td></tr>{% endfor %}</tbody></table></div>
+        </div>
+        <!-- Card de Pagamentos -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">Pagamentos
+                {% if reserva.status == 'checkin' or reserva.status == 'checkout' %}<a href="{% url 'pagamento_add' reserva.pk %}" class="btn btn-sm btn-success"><i class="bi bi-cash-coin"></i> Adicionar Pagamento</a>{% endif %}
+            </div>
+            <div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Data</th><th>Forma de Pagamento</th><th>Valor</th></tr></thead><tbody>{% for pagamento in reserva.pagamentos.all %}<tr><td>{{ pagamento.data_pagamento|date:"d/m/Y H:i" }}</td><td>{{ pagamento.forma_pagamento.nome }}</td><td>R$ {{ pagamento.valor }}</td></tr>{% empty %}<tr><td colspan="3" class="text-center">Nenhum pagamento registado.</td></tr>{% endfor %}</tbody></table></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <!-- ATUALIZAÇÃO: Lógica de Ações corrigida e mais clara -->
+        <div class="card mb-4">
+            <div class="card-header">Ações</div>
+            <div class="card-body text-center">
+                {% if reserva.status == 'confirmada' %}
+                    <form action="{% url 'fazer_checkin' reserva.pk %}" method="post" class="d-grid">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success">Realizar Check-in</button>
+                    </form>
+                {% elif reserva.status == 'checkin' %}
+                    <form action="{% url 'fazer_checkout' reserva.pk %}" method="post" class="d-grid mb-2">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning">Realizar Check-out</button>
+                    </form>
+                    {% if reserva.saldo_devedor > 0 %}
+                        <small class="text-danger">Atenção: A conta precisa ser paga antes do check-out.</small>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">Nenhuma ação principal disponível para este status.</p>
+                {% endif %}
+                <hr>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'reserva_edit' reserva.pk %}" class="btn btn-secondary btn-sm">Editar Detalhes/Valores</a>
+                    {% if reserva.status != 'cancelada' and reserva.status != 'checkout' %}
+                        <a href="{% url 'reserva_delete' reserva.pk %}" class="btn btn-danger btn-sm">Cancelar Reserva</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <!-- Card de Resumo Financeiro -->
+        <div class="card">
+            <div class="card-header">Resumo Financeiro</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between"><span>Diárias:</span> <span>R$ {{ reserva.valor_total_diarias }}</span></li>
+                <li class="list-group-item d-flex justify-content-between"><span>(+) Consumo:</span> <span>R$ {{ reserva.valor_consumo }}</span></li>
+                <li class="list-group-item d-flex justify-content-between"><span>(+) Extras:</span> <span>R$ {{ reserva.valor_extra }}</span></li>
+                <li class="list-group-item d-flex justify-content-between text-danger"><span>(-) Desconto:</span> <span>R$ {{ reserva.desconto }}</span></li>
+                <li class="list-group-item d-flex justify-content-between fw-bold"><span>Total a Pagar:</span> <span>R$ {{ reserva.total_a_pagar }}</span></li>
+                <li class="list-group-item d-flex justify-content-between text-success"><span>Total Pago:</span> <span>R$ {{ reserva.total_pago }}</span></li>
+                <li class="list-group-item d-flex justify-content-between fw-bold {% if reserva.saldo_devedor > 0 %}bg-warning{% else %}bg-light{% endif %}">
+                    <span>Saldo Devedor:</span> <span>R$ {{ reserva.saldo_devedor }}</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

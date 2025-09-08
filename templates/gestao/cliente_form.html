@@ -1,0 +1,53 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/cliente_form.html (NOVO FICHEIRO)              -->
+<!-- DESCRIÇÃO: Página com o formulário para adicionar ou editar um cliente.  -->
+<!-- ========================================================================== -->
+{% extends "base.html" %}
+
+{% block title %}
+  {% if is_update %}Editar Cliente{% else %}Adicionar Cliente{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
+    <h1 class="h2">{% if is_update %}Editar Cliente{% else %}Adicionar Cliente{% endif %}</h1>
+    <a href="{% url 'cliente_list' %}" class="btn btn-secondary">Voltar para a lista</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                    {% endif %}
+                    {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="d-flex gap-2">
+                <a href="{% url 'cliente_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">
+                    {% if is_update %}Salvar Alterações{% else %}Salvar{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+
+

@@ -1,0 +1,57 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/acomodacao_list.html (NOVO)                      -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Lista de Acomodações{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Acomodações</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'acomodacao_add' %}" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Adicionar Acomodação</a>
+            <a href="{% url 'tipo_acomodacao_list' %}" class="btn btn-sm btn-outline-secondary">Tipos de acomodações</a>
+        </div>
+    </div>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th scope="col">Número</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Capacidade</th>
+                <th scope="col">Camas</th>
+                <th scope="col">Status</th>
+                <th scope="col">Diária (R$)</th>
+                <th scope="col">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for acomodacao in acomodacoes %}
+            <tr>
+                <td>{{ acomodacao.numero }}</td>
+                <td>{{ acomodacao.tipo.nome }}</td>
+                <td>{{ acomodacao.capacidade }}</td>
+                <td>{{ acomodacao.qtd_camas }}</td>
+                <td><span class="badge 
+                    {% if acomodacao.status == 'disponivel' %}bg-success{% endif %}
+                    {% if acomodacao.status == 'ocupado' %}bg-danger{% endif %}
+                    {% if acomodacao.status == 'manutencao' %}bg-warning text-dark{% endif %}
+                    {% if acomodacao.status == 'limpeza' %}bg-info text-white{% endif %}
+                    ">{{ acomodacao.get_status_display }}</span></td>
+                <td>{{ acomodacao.valor_diaria }}</td>
+                <td>
+                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil-square"></i> Editar</a>
+                    <a href="{% url 'frigobar_detail' acomodacao.pk %}" class="btn btn-sm btn-info text-white"><i class="bi bi-snow"></i> Gerir Frigobar</a>
+                    <a href="{% url 'acomodacao_delete' acomodacao.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> Excluir</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">Nenhuma acomodação cadastrada.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

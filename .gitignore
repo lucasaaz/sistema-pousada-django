@@ -1,0 +1,19 @@
+Ambientes Virtuais (venv, env, etc.)
+venv/
+env/
+.env
+
+Banco de dados SQLite
+*.sqlite3
+db.sqlite3
+
+Ficheiros de cache do Python
+pycache/
+*.py[cod]
+*$py.class
+
+Ficheiros de Mídia (geralmente não são enviados para o Git)
+/media/
+
+Ficheiros de log e outros ficheiros temporários
+*.log
