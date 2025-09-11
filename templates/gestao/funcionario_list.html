@@ -2,68 +2,85 @@
 <!-- ARQUIVO: templates/gestao/funcionario_list.html (NOVO FICHEIRO)            -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
+
 {% block title %}Funcionários{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Gestão de Funcionários</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{% url 'funcionario_add' %}" class="btn btn-sm btn-primary">
-            <i class="bi bi-plus-lg"></i> Adicionar Novo Funcionário
-        </a>
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Gestão de Funcionários</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            {% if perms.auth.add_user %}
+            <a href="{% url 'funcionario_add' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-person-plus me-1"></i> Adicionar Funcionário
+            </a>
+            {% endif %}
+        </div>
     </div>
-</div>
-<div class="table-responsive">
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>Username</th>
-                <th>Nome Completo</th>
-                <th>Email</th>
-                <th>Grupos</th>
-                <th>Status</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for usuario in usuarios %}
-            <tr>
-                <td>{{ usuario.username }}</td>
-                <td>{{ usuario.get_full_name }}</td>
-                <td>{{ usuario.email }}</td>
-                <td>
-                    {% for group in usuario.groups.all %}
-                        <span class="badge bg-secondary">{{ group.name }}</span>
-                    {% empty %}
-                        <span class="text-muted">-</span>
-                    {% endfor %}
-                </td>
-                <td>
-                    {% if usuario.is_active %}
-                        <span class="badge bg-success">Ativo</span>
-                    {% else %}
-                        <span class="badge bg-danger">Inativo</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="{% url 'funcionario_edit' usuario.pk %}" class="btn btn-sm btn-secondary">Editar</a>
-                    {% if request.user.is_superuser and request.user.pk != usuario.pk %}
-                    <form action="{% url 'funcionario_toggle_status' usuario.pk %}" method="post" style="display: inline;">
-                        {% csrf_token %}
-                        {% if usuario.is_active %}
-                            <button type="submit" class="btn btn-sm btn-warning">Desativar</button>
-                        {% else %}
-                             <button type="submit" class="btn btn-sm btn-success">Ativar</button>
-                        {% endif %}
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6" class="text-center">Nenhum funcionário cadastrado.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Username</th>
+                            <th>Nome Completo</th>
+                            <th>Email</th>
+                            <th>Grupos</th>
+                            <th>Status</th>
+                            {% if perms.auth.change_user %}
+                            <th class="text-end">Ações</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr class="{% cycle '' 'table-light' %}">
+                            <td>{{ usuario.username }}</td>
+                            <td>{{ usuario.get_full_name }}</td>
+                            <td>{{ usuario.email }}</td>
+                            <td>
+                                {% for group in usuario.groups.all %}
+                                    <span class="badge bg-secondary">{{ group.name }}</span>
+                                {% empty %}
+                                    <span class="text-muted">-</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if usuario.is_active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inativo</span>
+                                {% endif %}
+                            </td>
+                            {% if perms.auth.change_user %}
+                            <td class="text-end">
+                                <a href="{% url 'funcionario_edit' usuario.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                
+                                {% if request.user.is_superuser and request.user.pk != usuario.pk %}
+                                <form action="{% url 'funcionario_toggle_status' usuario.pk %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    {% if usuario.is_active %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" data-bs-toggle="tooltip" title="Desativar"><i class="bi bi-toggle-off"></i></button>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="Ativar"><i class="bi bi-toggle-on"></i></button>
+                                    {% endif %}
+                                </form>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">Nenhum funcionário cadastrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
 {% endblock %}

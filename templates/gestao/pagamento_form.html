@@ -4,17 +4,19 @@
 {% extends 'base.html' %}
 {% block title %}Adicionar Pagamento{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Adicionar Pagamento à Reserva #{{ reserva.pk }}</h1>
-</div>
-<div class="alert alert-info">
-    Saldo devedor atual: <strong>R$ {{ reserva.saldo_devedor }}</strong>
-</div>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <hr>
-    <button type="submit" class="btn btn-primary">Registar Pagamento</button>
-    <a href="{% url 'reserva_detail' reserva.pk %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<main class="px-md-4">
+    <div class="pt-3 pb-2 mb-3 border-bottom"><h1 class="h2">Editar Pagamento</h1></div>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <div class="card-footer bg-white text-end px-0 pt-3">
+                    <a href="{% if object %}{% url 'reserva_detail' object.reserva.pk %}{% else %}{% url 'reserva_detail' reserva.pk %}{% endif %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
 {% endblock %}

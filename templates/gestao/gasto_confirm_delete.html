@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Confirmar Exclusão de Gasto{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="pt-3 pb-2 mb-3 border-bottom"><h1 class="h2">Confirmar Exclusão</h1></div>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p>Tem certeza que deseja excluir o gasto "<strong>{{ object.descricao }}</strong>" no valor de <strong>R$ {{ object.valor|floatformat:2 }}</strong>?</p>
+            <form method="post">
+                {% csrf_token %}
+                <a href="{% url 'financeiro' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Sim, excluir</button>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

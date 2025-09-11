@@ -3,6 +3,7 @@
 # DESCRIÇÃO: Adiciona os links para as novas páginas de clientes.
 # ==============================================================================
 from django.urls import path
+from django.contrib.auth import views as auth_views
 from . import views
 from .views import (
     dashboard_view, 
@@ -59,7 +60,12 @@ urlpatterns = [
     path('frigobar/remover-item/<int:item_frigobar_pk>/', views.remover_item_frigobar, name='remover_item_frigobar'),
     path('reservas/<int:reserva_pk>/adicionar-consumo/', views.consumo_create_view, name='consumo_add'),
 
-    # URLs para Pagamentos e Formas de Pagamento
+    # URLs para Pagamentos
+    path('reserva/<int:reserva_pk>/pagamento/adicionar/', views.pagamento_create_view, name='pagamento_add'),
+    path('pagamento/<int:pk>/editar/', views.PagamentoUpdateView.as_view(), name='pagamento_edit'),
+    path('pagamento/<int:pk>/excluir/', views.PagamentoDeleteView.as_view(), name='pagamento_delete'),
+
+    # URLs para Formas de Pagamento
     path('pagamentos/formas/', views.FormaPagamentoListView.as_view(), name='forma_pagamento_list'),
     path('pagamentos/formas/adicionar/', views.FormaPagamentoCreateView.as_view(), name='forma_pagamento_add'),
     path('pagamentos/formas/editar/<int:pk>/', views.FormaPagamentoUpdateView.as_view(), name='forma_pagamento_edit'),
@@ -77,6 +83,9 @@ urlpatterns = [
     path('funcionarios/adicionar/', views.FuncionarioCreateView.as_view(), name='funcionario_add'),
     path('funcionarios/editar/<int:pk>/', views.FuncionarioUpdateView.as_view(), name='funcionario_edit'),
     path('funcionarios/status/<int:pk>/', views.toggle_funcionario_status, name='funcionario_toggle_status'),
+    # URLs de Autenticação
+    path('login/', auth_views.LoginView.as_view(template_name='gestao/login.html',redirect_authenticated_user=True), name='login'), # Redireciona se o utilizador já estiver logado
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'), # Para onde redirecionar após o logout
 
     # URLs para Configurações do Hotel
     path('configuracoes/hotel/', views.configuracao_hotel_view, name='configuracao_hotel'),
@@ -86,4 +95,14 @@ urlpatterns = [
 
     # URL para o Dashboard Financeiro
     path('financeiro/', views.financeiro_dashboard_view, name='financeiro'),
+
+    # URLs para Gerenciar Gastos
+    path('gastos/<int:pk>/editar/', views.GastoUpdateView.as_view(), name='gasto_edit'),
+    path('gastos/<int:pk>/excluir/', views.GastoDeleteView.as_view(), name='gasto_delete'),
+
+    # URLs para Gerenciar Categorias de Gasto
+    path('financeiro/categorias/', views.CategoriaGastoListView.as_view(), name='categoria_gasto_list'),
+    path('financeiro/categorias/adicionar/', views.CategoriaGastoCreateView.as_view(), name='categoria_gasto_add'),
+    path('financeiro/categorias/<int:pk>/editar/', views.CategoriaGastoUpdateView.as_view(), name='categoria_gasto_edit'),
+    path('financeiro/categorias/<int:pk>/excluir/', views.CategoriaGastoDeleteView.as_view(), name='categoria_gasto_delete'),
 ]

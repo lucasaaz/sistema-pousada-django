@@ -6,20 +6,24 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.http import JsonResponse
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.decorators import login_required, permission_required
 from django.utils import timezone
 from datetime import datetime, timedelta, date
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.db.models import F, Count, Q, Sum, DecimalField, Value
+from django.core.paginator import Paginator
 from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, TruncMonth
 from django.contrib.auth.models import User
 from django.contrib import messages
-from .models import Reserva, Acomodacao, Cliente, TipoAcomodacao, ItemEstoque, Frigobar, ItemFrigobar, FormaPagamento, Consumo, VagaEstacionamento, ConfiguracaoHotel, Gasto, GastoCategoria
+from .models import Reserva, Acomodacao, Cliente, TipoAcomodacao, ItemEstoque, Frigobar, ItemFrigobar, FormaPagamento, Consumo, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto
 from .forms import *
 import json
 
 # ==============================================================================
 # === VIEW DO DASHBOARD                                                      ===
 # ==============================================================================
+@login_required
 def dashboard_view(request):
     # Visão Geral das Reservas
     total_reservas = Reserva.objects.count()
@@ -40,11 +44,12 @@ def dashboard_view(request):
     acomodacoes = Acomodacao.objects.all().order_by('numero')
     acomodacoes_disponiveis = acomodacoes.filter(status='disponivel')
     acomodacoes_ocupadas = acomodacoes.filter(status='ocupado')
+    acomodacoes_limpeza = acomodacoes.filter(status='limpeza')
     acomodacoes_manutencao = acomodacoes.filter(status='manutencao')
     
     # Listas de Reservas para exibição
     reservas_ativas_list = Reserva.objects.filter(status='checkin').order_by('data_checkout')
-    proximas_reservas = Reserva.objects.filter(data_checkin__gt=date.today()).order_by('data_checkin')
+    proximas_reservas = Reserva.objects.filter(data_checkin__gte=date.today()).order_by('data_checkin')
     
     context = {
         'total_reservas': total_reservas,
@@ -56,6 +61,7 @@ def dashboard_view(request):
         'status_reservas': json.dumps(status_reservas),
         'acomodacoes_disponiveis': acomodacoes_disponiveis,
         'acomodacoes_ocupadas': acomodacoes_ocupadas,
+        'acomodacoes_limpeza' : acomodacoes_limpeza,
         'acomodacoes_manutencao': acomodacoes_manutencao,
         'acomodacoes': acomodacoes,
         'reservas_ativas_list': reservas_ativas_list,
@@ -66,6 +72,7 @@ def dashboard_view(request):
 # ==============================================================================
 # === VIEW DO PAINEL DE GESTÃO DE CLIENTES                                   ===
 # ==============================================================================
+@login_required
 def cliente_dashboard_view(request):
     clientes = Cliente.objects.all().order_by('nome_completo')
     context = {
@@ -74,6 +81,7 @@ def cliente_dashboard_view(request):
     return render(request, 'gestao/clientes_dashboard.html', context)
 
 # View para a API de disponibilidade (sem alterações)
+@login_required
 def consulta_disponibilidade_view(request):
     data_inicio_str = request.GET.get('data_inicio')
     data_fim_str = request.GET.get('data_fim')
@@ -109,18 +117,32 @@ def consulta_disponibilidade_view(request):
 # ==============================================================================
 
 # LISTAR todos os clientes
+@login_required
+@permission_required('gestao.view_cliente', raise_exception=True)
 def cliente_list_view(request):
+    # Lógica de busca
     query = request.GET.get('q')
-    clientes = Cliente.objects.all().order_by('nome_completo')
-    
+    clientes_list = Cliente.objects.all().order_by('nome_completo')
+
     if query:
-        # Filtra os clientes por nome completo ou CPF
-        clientes = clientes.filter(Q(nome_completo__icontains=query) | Q(cpf__icontains=query))
-    
-    context = {'clientes': clientes, 'query': query}
+        clientes_list = clientes_list.filter(
+            Q(nome_completo__icontains=query) |
+            Q(cpf__icontains=query)
+        )
+
+    # Lógica de Paginação
+    paginator = Paginator(clientes_list, 15)  # Mostra 15 clientes por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj
+    }
     return render(request, 'gestao/cliente_list.html', context)
 
 # CRIAR um novo cliente
+@login_required
+@permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
@@ -134,6 +156,8 @@ def cliente_create_view(request):
     return render(request, 'gestao/cliente_form.html', context)
 
 # ATUALIZAR (EDITAR) um cliente existente
+@login_required
+@permission_required('gestao.change_cliente', raise_exception=True)
 def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
@@ -153,6 +177,8 @@ def cliente_update_view(request, pk):
     return render(request, 'gestao/cliente_form.html', context)
 
 # EXCLUIR um cliente (com confirmação)
+@login_required
+@permission_required('gestao.delete_cliente', raise_exception=True)
 def cliente_delete_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     if request.method == 'POST':
@@ -162,71 +188,157 @@ def cliente_delete_view(request, pk):
     return render(request, 'gestao/cliente_confirm_delete.html', context)
 
 # ==============================================================================
-# === VIEWS PARA A GESTÃO DE TIPOS DE ACOMODAÇÃO E ACOMODAÇÕES               ===
+# === VIEWS PARA A GESTÃO DE TIPOS DE ACOMODAÇÃO                             ===
 # ==============================================================================
 
-# CRUD para Tipos de Acomodação 
-class TipoAcomodacaoListView(ListView):
+# CRUD para Tipos de Acomodação
+class TipoAcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_tipoacomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = TipoAcomodacao
     template_name = 'gestao/tipo_acomodacao_list.html'
-    context_object_name = 'tipos'
+    context_object_name = 'page_obj'
+    paginate_by = 10
 
-class TipoAcomodacaoCreateView(CreateView):
+    def get_queryset(self):
+        # O annotate(num_acomodacoes=Count(...)) calcula o número de quartos para cada tipo
+        # de forma eficiente, evitando múltiplas consultas ao banco de dados.
+        queryset = super().get_queryset().annotate(
+            num_acomodacoes=Count('acomodacoes')
+        ).order_by('nome')
+        
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(nome__icontains=query)
+        
+        return queryset
+
+# ... (Create, Update, Delete para TipoAcomodacao continuam iguais)
+class TipoAcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_tipoacomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = TipoAcomodacao
     form_class = TipoAcomodacaoForm
     template_name = 'gestao/tipo_acomodacao_form.html'
     success_url = reverse_lazy('tipo_acomodacao_list')
 
-class TipoAcomodacaoUpdateView(UpdateView):
+class TipoAcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_tipoacomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = TipoAcomodacao
     form_class = TipoAcomodacaoForm
     template_name = 'gestao/tipo_acomodacao_form.html'
     success_url = reverse_lazy('tipo_acomodacao_list')
 
-class TipoAcomodacaoDeleteView(DeleteView):
+class TipoAcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_tipoacomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = TipoAcomodacao
     template_name = 'gestao/tipo_acomodacao_confirm_delete.html'
     success_url = reverse_lazy('tipo_acomodacao_list')
     context_object_name = 'tipo'
 
-# CRUD para Acomodações 
-class AcomodacaoListView(ListView):
+# ==============================================================================
+# === VIEWS PARA ACOMODAÇÃO                                                  ===
+# ==============================================================================
+class AcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_acomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Acomodacao
     template_name = 'gestao/acomodacao_list.html'
-    context_object_name = 'acomodacoes'
+    context_object_name = 'page_obj'  # O template espera 'page_obj' para paginação
+    paginate_by = 10  # Define quantos itens por página
 
-class AcomodacaoCreateView(CreateView):
+    def get_queryset(self):
+        # Começa com a query base, otimizando com select_related
+        queryset = super().get_queryset().select_related('tipo').order_by('numero')
+        
+        # Pega os parâmetros do formulário de filtro
+        query = self.request.GET.get('q')
+        status = self.request.GET.get('status')
+
+        # Aplica o filtro de busca textual, se houver
+        if query:
+            queryset = queryset.filter(
+                Q(numero__icontains=query) | Q(tipo__nome__icontains=query)
+            )
+        
+        # Aplica o filtro de status, se houver
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        # Pega o contexto existente
+        context = super().get_context_data(**kwargs)
+        # Adiciona os status_choices ao contexto para usar no dropdown do template
+        context['status_choices'] = Acomodacao.STATUS_CHOICES
+        return context
+
+# ... (Create, Update, Delete para Acomodacao continuam iguais)
+class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_acomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Acomodacao
     form_class = AcomodacaoForm
     template_name = 'gestao/acomodacao_form.html'
     success_url = reverse_lazy('acomodacao_list')
 
-class AcomodacaoUpdateView(UpdateView):
+class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_acomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Acomodacao
     form_class = AcomodacaoForm
     template_name = 'gestao/acomodacao_form.html'
     success_url = reverse_lazy('acomodacao_list')
 
-class AcomodacaoDeleteView(DeleteView):
+class AcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_acomodacao'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Acomodacao
     template_name = 'gestao/acomodacao_confirm_delete.html'
     success_url = reverse_lazy('acomodacao_list')
     context_object_name = 'acomodacao'
 
 # ==============================================================================
-# === VIEWS PARA A GESTÃO DE RESERVAS                                        ===
+# === VIEWS PARA RESERVAS                                                    ===
 # ==============================================================================
 
-class ReservaListView(ListView):
+class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_reserva'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Reserva
     template_name = 'gestao/reserva_list.html'
     context_object_name = 'reservas'
     ordering = ['-data_reserva']
-    paginate_by = 20 # Opcional: Adiciona paginação para melhor performance
+    paginate_by = 20 
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        # Otimiza a consulta para já buscar os dados relacionados de uma vez
+        queryset = super().get_queryset().select_related('cliente', 'acomodacao')
+
+        # Pega o parâmetro de ordenação da URL. O padrão é ordenar pela data de reserva mais recente.
+        ordering = self.request.GET.get('ordering', '-data_reserva')
+        
+        # Uma lista de campos permitidos para ordenação (para segurança)
+        allowed_ordering_fields = ['data_checkin', '-data_checkin', 'data_checkout', '-data_checkout']
+        if ordering in allowed_ordering_fields:
+            queryset = queryset.order_by(ordering)
+        else:
+            queryset = queryset.order_by('-data_reserva') # Fallback para o padrão  
+
         query = self.request.GET.get('q')
+        status = self.request.GET.get('status')
         checkin_date = self.request.GET.get('checkin_date')
         
         if query:
@@ -236,6 +348,11 @@ class ReservaListView(ListView):
                 Q(cliente__cpf__icontains=query) |
                 Q(acomodacao__numero__icontains=query)
             )
+        
+        # Aplica o filtro de status, se houver
+        if status:
+            queryset = queryset.filter(status=status)
+
         if checkin_date:
             try:
                 # Tenta converter a data de string para um objeto de data
@@ -252,14 +369,24 @@ class ReservaListView(ListView):
         # Adiciona a query de busca ao contexto para manter o campo preenchido
         context['query'] = self.request.GET.get('q', '')
         context['checkin_date'] = self.request.GET.get('checkin_date', '')
+        # Passa a ordenação atual para o template, para que saibamos qual link criar
+        context['current_ordering'] = self.request.GET.get('ordering', '-data_reserva')
+        # Pega as opções de status do modelo e envia para o template
+        context['status_choices'] = Reserva.STATUS_CHOICES
         return context
 
-class ReservaDetailView(DetailView):
+class ReservaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = 'gestao.view_reserva'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Reserva
     template_name = 'gestao/reserva_detail.html'
     context_object_name = 'reserva'
 
-class ReservaCreateView(CreateView):
+class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_reserva'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Reserva
     form_class = ReservaForm
     template_name = 'gestao/reserva_form.html'
@@ -269,19 +396,26 @@ class ReservaCreateView(CreateView):
         # Lógica adicional pode ser adicionada aqui se necessário
         return super().form_valid(form)
 
-class ReservaUpdateView(UpdateView):
+class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_reserva'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Reserva
     form_class = ReservaForm
     template_name = 'gestao/reserva_form.html'
     success_url = reverse_lazy('reserva_list')
 
-class ReservaDeleteView(DeleteView):
+class ReservaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_reserva'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = Reserva
     template_name = 'gestao/reserva_confirm_delete.html'
     success_url = reverse_lazy('reserva_list')
     context_object_name = 'reserva'
 
 # Ações de Check-in e Check-out 
+@login_required
 def fazer_checkin(request, pk):
     reserva = get_object_or_404(Reserva, pk=pk)
     if reserva.status == 'confirmada':
@@ -303,6 +437,7 @@ def fazer_checkin(request, pk):
     
     return redirect('reserva_detail', pk=reserva.pk)
 
+@login_required
 def fazer_checkout(request, pk):
     reserva = get_object_or_404(Reserva, pk=pk)
     if reserva.status == 'checkin':
@@ -330,7 +465,8 @@ def fazer_checkout(request, pk):
     
     return redirect('reserva_detail', pk=reserva.pk)
 
-# NOVA VIEW: Gera e exibe o contrato de check-in para impressão
+# Gera e exibe o contrato de check-in para impressão
+@login_required
 def imprimir_contrato_checkin(request, pk):
     reserva = get_object_or_404(Reserva, pk=pk)
     context = {
@@ -344,25 +480,43 @@ def imprimir_contrato_checkin(request, pk):
 # === VIEWS PARA A GESTÃO DE ESTOQUE                                         ===
 # ==============================================================================
 
-class ItemEstoqueListView(ListView):
+class ItemEstoqueListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_itemestoque'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = ItemEstoque
     template_name = 'gestao/item_estoque_list.html'
-    context_object_name = 'itens'
-    ordering = ['nome']
+    context_object_name = 'page_obj'
+    paginate_by = 15 # Itens por página
 
-class ItemEstoqueCreateView(CreateView):
+    def get_queryset(self):
+        queryset = super().get_queryset().order_by('nome')
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(nome__icontains=query)
+        return queryset
+
+class ItemEstoqueCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_itemestoque'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
     model = ItemEstoque
     form_class = ItemEstoqueForm
     template_name = 'gestao/item_estoque_form.html'
     success_url = reverse_lazy('item_estoque_list')
 
-class ItemEstoqueUpdateView(UpdateView):
+class ItemEstoqueUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_itemestoque'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = ItemEstoque
     form_class = ItemEstoqueForm
     template_name = 'gestao/item_estoque_form.html'
     success_url = reverse_lazy('item_estoque_list')
 
-class ItemEstoqueDeleteView(DeleteView):
+class ItemEstoqueDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_itemestoque'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = ItemEstoque
     template_name = 'gestao/item_estoque_confirm_delete.html'
     success_url = reverse_lazy('item_estoque_list')
@@ -371,6 +525,7 @@ class ItemEstoqueDeleteView(DeleteView):
 # ==============================================================================
 # === VIEWS PARA FRIGOBAR E CONSUMO                                          ===
 # ==============================================================================
+@login_required
 def frigobar_detail_view(request, acomodacao_pk):
     """Exibe o conteúdo de um frigobar e permite abastecê-lo."""
     acomodacao = get_object_or_404(Acomodacao, pk=acomodacao_pk)
@@ -399,6 +554,8 @@ def frigobar_detail_view(request, acomodacao_pk):
     }
     return render(request, 'gestao/frigobar_detail.html', context)
 
+@login_required
+@permission_required('gestao.delete_itemfrigobar', raise_exception=True)
 def remover_item_frigobar(request, item_frigobar_pk):
     """Remove um item do frigobar."""
     item_frigobar = get_object_or_404(ItemFrigobar, pk=item_frigobar_pk)
@@ -407,6 +564,8 @@ def remover_item_frigobar(request, item_frigobar_pk):
         item_frigobar.delete()
     return redirect('frigobar_detail', acomodacao_pk=acomodacao_pk)
 
+@login_required
+@permission_required('gestao.add_itemfrigobar', raise_exception=True)
 def consumo_create_view(request, reserva_pk):
     """Regista um novo consumo para uma reserva."""
     reserva = get_object_or_404(Reserva, pk=reserva_pk)
@@ -440,31 +599,50 @@ def consumo_create_view(request, reserva_pk):
     return render(request, 'gestao/consumo_form.html', context)
 
 # ==============================================================================
-# === VIEWS PARA PAGAMENTOS                                                  ===
+# === VIEWS PARA FORMA DE PAGAMENTOS                                         ===
 # ==============================================================================
-class FormaPagamentoListView(ListView):
+class FormaPagamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_formapagamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = FormaPagamento
     template_name = 'gestao/forma_pagamento_list.html'
-    context_object_name = 'formas_pagamento'
+    context_object_name = 'page_obj' # Usa page_obj para a paginação
+    paginate_by = 10 # Define 10 itens por página
+    ordering = ['nome'] # Opcional: Garante a ordem alfabética
 
-class FormaPagamentoCreateView(CreateView):
+class FormaPagamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_formapagamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = FormaPagamento
     form_class = FormaPagamentoForm
     template_name = 'gestao/forma_pagamento_form.html'
     success_url = reverse_lazy('forma_pagamento_list')
 
-class FormaPagamentoUpdateView(UpdateView):
+class FormaPagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_formapagamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = FormaPagamento
     form_class = FormaPagamentoForm
     template_name = 'gestao/forma_pagamento_form.html'
     success_url = reverse_lazy('forma_pagamento_list')
 
-class FormaPagamentoDeleteView(DeleteView):
+class FormaPagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_formapagamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = FormaPagamento
     template_name = 'gestao/forma_pagamento_confirm_delete.html'
     success_url = reverse_lazy('forma_pagamento_list')
     context_object_name = 'forma_pagamento'
 
+# ==============================================================================
+# === VIEWS PARA PAGAMENTOS                                                  ===
+# ==============================================================================
+@login_required
+@permission_required('gestao.add_pagamento', raise_exception=True)
 def pagamento_create_view(request, reserva_pk):
     """Regista um novo pagamento para uma reserva."""
     reserva = get_object_or_404(Reserva, pk=reserva_pk)
@@ -475,39 +653,96 @@ def pagamento_create_view(request, reserva_pk):
             pagamento = form.save(commit=False)
             pagamento.reserva = reserva
             pagamento.save()
+            messages.success(request, f"Pagamento de R$ {pagamento.valor} registado com sucesso!")
             return redirect('reserva_detail', pk=reserva.pk)
     else:
         # Sugere o valor do saldo devedor como valor inicial do pagamento
         form = PagamentoForm(initial={'valor': reserva.saldo_devedor()})
 
     context = {
+        'form': form,
         'reserva': reserva,
-        'form': form
     }
     return render(request, 'gestao/pagamento_form.html', context)
+
+class PagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_pagamento'
+    raise_exception = True
+
+    model = Pagamento
+    form_class = PagamentoForm
+    template_name = 'gestao/pagamento_form.html'
+
+    def get_success_url(self):
+        # Volta para a página de detalhes da reserva após editar
+        return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+
+class PagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_pagamento'
+    raise_exception = True
+
+    model = Pagamento
+    template_name = 'gestao/pagamento_confirm_delete.html'
+
+    def get_success_url(self):
+        # Volta para a página de detalhes da reserva após excluir
+        return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
 
 # ==============================================================================
 # === VIEWS PARA ESTACIONAMENTO                                              ===
 # ==============================================================================
-class VagaEstacionamentoListView(ListView):
+class VagaEstacionamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_vagaestacionamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+
     model = VagaEstacionamento
     template_name = 'gestao/vaga_estacionamento_list.html'
-    context_object_name = 'vagas'
-    ordering = ['numero_vaga']
+    context_object_name = 'page_obj'
+    paginate_by = 10 # Define 10 vagas por página
 
-class VagaEstacionamentoCreateView(CreateView):
+    def get_queryset(self):
+        # Otimiza a consulta para buscar a acomodação vinculada de uma vez
+        queryset = super().get_queryset().select_related('acomodacao_vinculada').order_by('numero_vaga')
+        
+        # Pega os parâmetros do formulário de filtro da URL
+        query = self.request.GET.get('q')
+        disponivel = self.request.GET.get('disponivel')
+
+        # Aplica o filtro de busca textual, se houver
+        if query:
+            queryset = queryset.filter(
+                Q(numero_vaga__icontains=query) | 
+                Q(acomodacao_vinculada__numero__icontains=query)
+            )
+        
+        # Aplica o filtro de disponibilidade, se houver
+        if disponivel in ['true', 'false']:
+            queryset = queryset.filter(disponivel=(disponivel == 'true'))
+            
+        return queryset
+
+class VagaEstacionamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_vagaestacionamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
     model = VagaEstacionamento
     form_class = VagaEstacionamentoForm
     template_name = 'gestao/vaga_estacionamento_form.html'
     success_url = reverse_lazy('vaga_estacionamento_list')
 
-class VagaEstacionamentoUpdateView(UpdateView):
+class VagaEstacionamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_vagaestacionamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
     model = VagaEstacionamento
     form_class = VagaEstacionamentoForm
     template_name = 'gestao/vaga_estacionamento_form.html'
     success_url = reverse_lazy('vaga_estacionamento_list')
 
-class VagaEstacionamentoDeleteView(DeleteView):
+class VagaEstacionamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_vagaestacionamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
     model = VagaEstacionamento
     template_name = 'gestao/vaga_estacionamento_confirm_delete.html'
     success_url = reverse_lazy('vaga_estacionamento_list')
@@ -516,24 +751,34 @@ class VagaEstacionamentoDeleteView(DeleteView):
 # ==============================================================================
 # === VIEWS PARA FUNCIONÁRIOS                                                ===
 # ==============================================================================
-class FuncionarioListView(ListView):
+class FuncionarioListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_funcionario'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
     model = User
     template_name = 'gestao/funcionario_list.html'
     context_object_name = 'usuarios'
     ordering = ['username']
 
-class FuncionarioCreateView(CreateView):
+class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_vagaestacionamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
     model = User
     form_class = FuncionarioCreationForm
     template_name = 'gestao/funcionario_form.html'
     success_url = reverse_lazy('funcionario_list')
 
-class FuncionarioUpdateView(UpdateView):
+class FuncionarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_vagaestacionamento'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
     model = User
     form_class = FuncionarioUpdateForm
     template_name = 'gestao/funcionario_form.html'
     success_url = reverse_lazy('funcionario_list')
 
+@login_required
 def toggle_funcionario_status(request, pk):
     # Apenas superutilizadores podem ativar/desativar contas
     if not request.user.is_superuser:
@@ -548,8 +793,9 @@ def toggle_funcionario_status(request, pk):
     return redirect('funcionario_list')
 
 # ==============================================================================
-# === VIEW PARA CONFIGURAÇÕES DO HOTEL                                       ===
+# === VIEWS PARA CONFIGURAÇÕES DO HOTEL                                      ===
 # ==============================================================================
+@login_required
 def configuracao_hotel_view(request):
     # Usamos o ID=1 como padrão, pois só haverá uma linha de configuração.
     configuracao, created = ConfiguracaoHotel.objects.get_or_create(pk=1)
@@ -567,39 +813,87 @@ def configuracao_hotel_view(request):
     return render(request, 'gestao/configuracao_hotel_form.html', {'form': form})
 
 # ==========================================================
-# === VIEW PARA O RELATÓRIO DE ACOMODAÇÕES               ===
+# === VIEWS PARA O RELATÓRIO DE ACOMODAÇÕES              ===
 # ==========================================================
+@login_required
 def relatorio_acomodacoes_view(request):
-    acomodacoes_ranking = Reserva.objects \
-        .values('acomodacao__numero', 'acomodacao__tipo__nome') \
-        .annotate(total_reservas=Count('acomodacao')) \
-        .order_by('-total_reservas')
+    # --- 1. Lógica para o Ranking de Acomodações (Gráfico) ---
+    
+    # Filtra apenas por reservas concluídas ('checkout') para um ranking mais preciso
+    acomodacoes_ranking = Reserva.objects.filter(status='checkout') \
+        .values('acomodacao__numero') \
+        .annotate(total_reservas=Count('id')) \
+        .order_by('-total_reservas')[:10]  # Limita aos 10 primeiros
 
+    # Prepara os dados no formato que o Chart.js espera
+    ranking_labels = [f"Quarto {item['acomodacao__numero']}" for item in acomodacoes_ranking]
+    ranking_data = [item['total_reservas'] for item in acomodacoes_ranking]
+    
+    # Converte os dados para uma string JSON segura para ser usada no template
+    ranking_data_json = json.dumps({
+        'labels': ranking_labels,
+        'data': ranking_data,
+    })
+
+    # --- 2. Lógica para o Extrato de Pagamentos ---
+
+    # Query base: todas as reservas com check-out, ordenadas pela data mais recente
     reservas_finalizadas = Reserva.objects.filter(status='checkout').order_by('-data_checkout')
 
+    # Pega os parâmetros de filtro da URL
+    query = request.GET.get('q')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    # Aplica filtro de busca textual
+    if query:
+        reservas_finalizadas = reservas_finalizadas.filter(
+            Q(cliente__nome_completo__icontains=query) | Q(cliente__cpf__icontains=query)
+        )
+        
+    # Aplica filtro de data de início
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        reservas_finalizadas = reservas_finalizadas.filter(data_checkout__gte=start_date)
+        
+    # Aplica filtro de data de fim
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        reservas_finalizadas = reservas_finalizadas.filter(data_checkout__lte=end_date)
+        
+    # Monta a estrutura de dados completa para o extrato
     relatorio_pagamentos = []
     for reserva in reservas_finalizadas:
-        pagamentos = reserva.pagamentos.all().order_by('data_pagamento')
-        consumos = reserva.consumos.all().order_by('data_consumo')
-        
+        pagamentos = reserva.pagamentos.all()
+        consumos = reserva.consumos.all()
         total_pago = sum(p.valor for p in pagamentos)
-
+        
         relatorio_pagamentos.append({
             'reserva': reserva,
             'pagamentos': pagamentos,
             'consumos': consumos,
             'total_pago': total_pago,
         })
+    
+    # --- 3. Lógica de Paginação ---
+
+    # Pagina a lista de extratos já montada
+    paginator = Paginator(relatorio_pagamentos, 5)  # Mostra 5 extratos por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # --- 4. Contexto para o Template ---
 
     context = {
-        'acomodacoes_ranking': acomodacoes_ranking,
-        'relatorio_pagamentos': relatorio_pagamentos,
+        'ranking_data_json': ranking_data_json, # Dados do gráfico
+        'page_obj': page_obj,                   # Dados paginados para o extrato
     }
     return render(request, 'gestao/relatorio_acomodacoes.html', context)
 
 # ==========================================================
-# === VIEW PARA O GESTÃO FINANCEIRA                      ===
+# === VIEWS PARA O GESTÃO FINANCEIRA                     ===
 # ==========================================================
+@login_required
 def financeiro_dashboard_view(request):
     # --- Form de gasto (POST) ---
     if request.method == 'POST':
@@ -706,10 +1000,19 @@ def financeiro_dashboard_view(request):
         .order_by('periodo')
     )
 
+    def normalize_date(dt):
+        """Converte datetime ou date para date"""
+        if isinstance(dt, datetime):
+            return dt.date()  # remove hora
+        return dt
+
     # Mesclando meses
     mapa_receita = {item['periodo']: float(item['total']) for item in receitas_por_mes}
     mapa_despesa = {item['periodo']: float(item['total']) for item in despesas_por_mes}
-    meses = sorted(set(mapa_receita.keys()) | set(mapa_despesa.keys()))
+    meses = sorted(
+        set(normalize_date(k) for k in mapa_receita.keys()) |
+        set(normalize_date(k) for k in mapa_despesa.keys())
+    )
 
     fluxo_caixa_mensal = []
     for m in meses:
@@ -737,6 +1040,9 @@ def financeiro_dashboard_view(request):
         {"label": "Outros", "valor": float(receita_outros)},
     ]
 
+    # ESTA CONSULTA: busca os 5 gastos mais recentes
+    gastos_recentes = Gasto.objects.order_by('-data_gasto')[:5]
+
     context = {
         # Filtros
         "start": start_date,
@@ -763,5 +1069,70 @@ def financeiro_dashboard_view(request):
 
         # Form de gastos
         "gasto_form": gasto_form,
+
+        # 
+        'gastos_recentes': gastos_recentes,
     }
+
     return render(request, 'gestao/financeiro_dashboard.html', context)
+
+# ==========================================================
+# === VIEWS PARA GASTO                                   ===
+# ==========================================================
+
+class GastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_gasto'
+    raise_exception = True
+
+    model = Gasto
+    form_class = GastoForm
+    template_name = 'gestao/gasto_form.html'
+    success_url = reverse_lazy('financeiro') # Volta para o painel financeiro
+
+class GastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_gasto'
+    raise_exception = True
+    
+    model = Gasto
+    template_name = 'gestao/gasto_confirm_delete.html'
+    success_url = reverse_lazy('financeiro') # Volta para o painel financeiro
+
+# ==========================================================
+# === VIEWS PARA CATEGORIAS DE GASTO                     ===
+# ==========================================================
+
+class CategoriaGastoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_categoriagasto'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
+    model = CategoriaGasto
+    template_name = 'gestao/categoria_gasto_list.html'
+    context_object_name = 'page_obj'
+    paginate_by = 10
+    ordering = ['nome']
+
+class CategoriaGastoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_categoriagasto'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
+    model = CategoriaGasto
+    form_class = CategoriaGastoForm
+    template_name = 'gestao/categoria_gasto_form.html'
+    success_url = reverse_lazy('categoria_gasto_list')
+
+class CategoriaGastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_categoriagasto'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
+    model = CategoriaGasto
+    form_class = CategoriaGastoForm
+    template_name = 'gestao/categoria_gasto_form.html'
+    success_url = reverse_lazy('categoria_gasto_list')
+
+class CategoriaGastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_categoriagasto'
+    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    
+    model = CategoriaGasto
+    template_name = 'gestao/categoria_gasto_confirm_delete.html'
+    success_url = reverse_lazy('categoria_gasto_list')

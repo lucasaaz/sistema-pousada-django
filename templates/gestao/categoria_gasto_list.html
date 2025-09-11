@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Categorias de Gasto{% endblock %}
+
+{% block content %}
+<main class="cpx-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Categorias de Gasto</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'financeiro' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Financeiro
+            </a>
+            <a href="{% url 'categoria_gasto_add' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i> Adicionar Categoria
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome da Categoria</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for categoria in page_obj %}
+                    <tr class="{% cycle '' 'table-light' %}">
+                        <td class="fw-bold">{{ categoria.nome }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'categoria_gasto_edit' categoria.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'categoria_gasto_delete' categoria.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Excluir"><i class="bi bi-trash"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center py-4">Nenhuma categoria cadastrada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+</main>
+{% endblock %}

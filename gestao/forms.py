@@ -6,9 +6,9 @@ from django import forms
 from django.forms import ModelForm
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
-from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, GastoCategoria
+from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto
 
-# Formulário para a Gestão de Clientes
+# Formulário para Clientes
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
@@ -22,7 +22,7 @@ class ClienteForm(forms.ModelForm):
             'telefone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
         }
 
-# Formulario para a Gestão de Tipos de Acomodação
+# Formulario para Tipos de Acomodação
 class TipoAcomodacaoForm(forms.ModelForm):
     """Formulário para criar e editar Tipos de Acomodação."""
     class Meta:
@@ -33,7 +33,7 @@ class TipoAcomodacaoForm(forms.ModelForm):
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
-# Formulario para a Gestão de Acomodações
+# Formulario para Acomodações
 class AcomodacaoForm(forms.ModelForm):
     """Formulário para criar e editar Acomodações."""
     class Meta:
@@ -49,7 +49,7 @@ class AcomodacaoForm(forms.ModelForm):
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
         }
 
-# Formulario para a Gestão de Reservas
+# Formulario para Reservas
 class ReservaForm(forms.ModelForm):
     """Formulário para criar e editar Reservas."""
     class Meta:
@@ -90,7 +90,7 @@ class ReservaForm(forms.ModelForm):
                 
         return cleaned_data
     
-# Formulario para a Gestão de Estoque
+# Formulario para Estoque
 class ItemEstoqueForm(forms.ModelForm):
     """Formulário para criar e editar Itens de Estoque."""
     class Meta:
@@ -103,7 +103,7 @@ class ItemEstoqueForm(forms.ModelForm):
             'preco_venda': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-# Formulario para a Gestão de Itens de Frigobar
+# Formulario para Itens de Frigobar
 class AbastecerFrigobarForm(forms.ModelForm):
     """Formulário para adicionar um item a um frigobar."""
     class Meta:
@@ -114,7 +114,7 @@ class AbastecerFrigobarForm(forms.ModelForm):
             'quantidade': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-# Formulario para a Gestão de Consumos
+# Formulario para Consumos
 class ConsumoForm(forms.ModelForm):
     """Formulário para registar um novo consumo a uma reserva."""
     class Meta:
@@ -129,8 +129,19 @@ class ConsumoForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Limita a escolha de itens para apenas aqueles que têm estoque > 0
         self.fields['item'].queryset = ItemEstoque.objects.filter(quantidade__gt=0)
+    
+# Formulario para Pagamentos
+class PagamentoForm(forms.ModelForm):
+    class Meta:
+        model = Pagamento
+        fields = ['forma_pagamento', 'valor', 'data_pagamento']
+        widgets = {
+            'forma_pagamento': forms.Select(attrs={'class': 'form-select'}),
+            'valor': forms.NumberInput(attrs={'class': 'form-control'}),
+            'data_pagamento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
 
-# Formulários para a Gestão de Pagamentos
+# Formulários para Forma de Pagamentos
 class FormaPagamentoForm(forms.ModelForm):
     class Meta:
         model = FormaPagamento
@@ -148,7 +159,7 @@ class PagamentoForm(forms.ModelForm):
             'valor': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-# Formulário para a Gestão de Vagas de Estacionamento
+# Formulário para Vagas de Estacionamento
 class VagaEstacionamentoForm(forms.ModelForm):
     class Meta:
         model = VagaEstacionamento
@@ -164,7 +175,7 @@ class VagaEstacionamentoForm(forms.ModelForm):
         # Torna o campo de acomodação não obrigatório
         self.fields['acomodacao_vinculada'].required = False
 
-# Formulários para a Gestão de Funcionários (Utilizadores do Sistema)
+# Formulários para Funcionários (Utilizadores do Sistema)
 class FuncionarioCreationForm(UserCreationForm):
     # Adicionamos campos extras ao formulário de criação de utilizador padrão
     first_name = forms.CharField(max_length=30, required=True, help_text='Obrigatório.')
@@ -190,7 +201,7 @@ class FuncionarioUpdateForm(forms.ModelForm):
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'groups', 'is_active']
 
-# Formulário para a Gestão das Configurações do Hotel
+# Formulário para Configurações do Hotel
 class ConfiguracaoHotelForm(forms.ModelForm):
     class Meta:
         model = ConfiguracaoHotel
@@ -201,10 +212,10 @@ class ConfiguracaoHotelForm(forms.ModelForm):
             'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
 
-# Formulários para a Gestão Financeira
-class GastoCategoriaForm(ModelForm):
+# Formulários para Financeira
+class CategoriaGastoForm(forms.ModelForm):
     class Meta:
-        model = GastoCategoria
+        model = CategoriaGasto
         fields = ['nome']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),

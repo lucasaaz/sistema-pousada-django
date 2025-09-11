@@ -2,56 +2,139 @@
 <!-- ARQUIVO: templates/gestao/acomodacao_list.html (NOVO)                      -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
+
 {% block title %}Lista de Acomodações{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Acomodações</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <a href="{% url 'acomodacao_add' %}" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Adicionar Acomodação</a>
-            <a href="{% url 'tipo_acomodacao_list' %}" class="btn btn-sm btn-outline-secondary">Tipos de acomodações</a>
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Acomodações</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <a href="{% url 'acomodacao_add' %}" class="btn btn-primary shadow-sm"><i class="bi bi-house-door me-1"></i> Adicionar Acomodação</a>
+                <a href="{% url 'tipo_acomodacao_list' %}" class="btn btn-outline-secondary">Gerenciar Tipos</a>
+            </div>
         </div>
     </div>
-</div>
-<div class="table-responsive">
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th scope="col">Número</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Capacidade</th>
-                <th scope="col">Camas</th>
-                <th scope="col">Status</th>
-                <th scope="col">Diária (R$)</th>
-                <th scope="col">Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for acomodacao in acomodacoes %}
-            <tr>
-                <td>{{ acomodacao.numero }}</td>
-                <td>{{ acomodacao.tipo.nome }}</td>
-                <td>{{ acomodacao.capacidade }}</td>
-                <td>{{ acomodacao.qtd_camas }}</td>
-                <td><span class="badge 
-                    {% if acomodacao.status == 'disponivel' %}bg-success{% endif %}
-                    {% if acomodacao.status == 'ocupado' %}bg-danger{% endif %}
-                    {% if acomodacao.status == 'manutencao' %}bg-warning text-dark{% endif %}
-                    {% if acomodacao.status == 'limpeza' %}bg-info text-white{% endif %}
-                    ">{{ acomodacao.get_status_display }}</span></td>
-                <td>{{ acomodacao.valor_diaria }}</td>
-                <td>
-                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil-square"></i> Editar</a>
-                    <a href="{% url 'frigobar_detail' acomodacao.pk %}" class="btn btn-sm btn-info text-white"><i class="bi bi-snow"></i> Gerir Frigobar</a>
-                    <a href="{% url 'acomodacao_delete' acomodacao.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> Excluir</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="7" class="text-center">Nenhuma acomodação cadastrada.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light border-bottom-0">
+            <form method="get" action="{% url 'acomodacao_list' %}" class="row g-3 align-items-center">
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="search" class="form-control" name="q" placeholder="Buscar por número ou tipo" value="{{ request.GET.q|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-tag"></i></span>
+                        <select name="status" class="form-select">
+                            <option value="">Todos os status</option>
+                            {% for status_key, status_value in status_choices %}
+                            <option value="{{ status_key }}" {% if request.GET.status == status_key %}selected{% endif %}>{{ status_value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+                        <a href="{% url 'acomodacao_list' %}" class="btn btn-outline-secondary w-100">Limpar</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Número</th>
+                            <th scope="col">Tipo</th>
+                            <th scope="col">Capacidade</th>
+                            <th scope="col">N° de Camas</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Diária (R$)</th>
+                            <th scope="col" class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for acomodacao in page_obj %}
+                        <tr class="{% cycle '' 'table-light' %}">
+                            <td><span class="fw-bold">{{ acomodacao.numero }}</span></td>
+                            <td>{{ acomodacao.tipo.nome }}</td>
+                            <td>{{ acomodacao.capacidade }} hóspede(s)</td>
+                            <td>{{ acomodacao.qtd_camas }} cama(s)</td>
+                            <td>
+                                {% if acomodacao.status == 'disponivel' %}
+                                    <span class="badge bg-success-soft text-success">{{ acomodacao.get_status_display }}</span>
+                                {% elif acomodacao.status == 'ocupado' %}
+                                    <span class="badge bg-danger-soft text-danger">{{ acomodacao.get_status_display }}</span>
+                                {% elif acomodacao.status == 'manutencao' %}
+                                    <span class="badge bg-warning-soft text-warning">{{ acomodacao.get_status_display }}</span>
+                                {% elif acomodacao.status == 'limpeza' %}
+                                    <span class="badge bg-info-soft text-info">{{ acomodacao.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-soft text-secondary">{{ acomodacao.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ acomodacao.valor_diaria|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar Acomodação">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'frigobar_detail' acomodacao.pk %}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Gerir Frigobar">
+                                    <i class="bi bi-snow3"></i>
+                                </a>
+                                <a href="{% url 'acomodacao_delete' acomodacao.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Excluir Acomodação">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4">Nenhuma acomodação encontrada.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Navegação das acomodações">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1&{{ request.GET.urlencode }}">&laquo; Primeira</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Anterior</a></li>
+                    {% endif %}
+
+                    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Próxima</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">Última &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    // Inicializa os tooltips do Bootstrap
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+    });
+</script>
 {% endblock %}

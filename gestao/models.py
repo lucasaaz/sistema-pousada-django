@@ -43,11 +43,11 @@ class Acomodacao(models.Model):
         ('limpeza', 'Limpeza'),
     )
     numero = models.CharField(max_length=10, unique=True)
-    tipo = models.ForeignKey(TipoAcomodacao, on_delete=models.PROTECT)
+    tipo = models.ForeignKey(TipoAcomodacao, on_delete=models.PROTECT, related_name='acomodacoes')
     valor_diaria = models.DecimalField(max_digits=10, decimal_places=2)
     descricao = models.TextField(null=True, blank=True)
-    capacidade = models.PositiveIntegerField(default=1, help_text="Número máximo de hóspedes.") # NOVO CAMPO
-    qtd_camas = models.PositiveIntegerField(default=1, help_text="Quantidade de camas no quarto.") # NOVO CAMPO
+    capacidade = models.PositiveIntegerField(default=1, help_text="Número máximo de hóspedes.") 
+    qtd_camas = models.PositiveIntegerField(default=1, help_text="Quantidade de camas no quarto.") 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disponivel')
 
     def __str__(self):
@@ -137,6 +137,13 @@ class Reserva(models.Model):
     def saldo_devedor(self):
         """Calcula o saldo que ainda falta pagar."""
         return self.total_a_pagar() - self.total_pago()
+    @property
+    def num_dias(self):
+        """Calcula e retorna o número de dias (diárias) da reserva."""
+        if self.data_checkin and self.data_checkout:
+            delta = self.data_checkout - self.data_checkin
+            return delta.days
+        return 0
 
 # Módulo: Consumo durante a estadia
 class Consumo(models.Model):
@@ -166,229 +173,23 @@ class Pagamento(models.Model):
 # O controle de acesso é feito via Grupos e Permissões no painel /admin.
 # Ex: Grupo "Recepcionista", Grupo "Gerente"
 
-# Módulo: Gestão financeira
-class GastoCategoria(models.Model):
-    """Categorias para agrupar diferentes tipos de gastos (limpeza, manutenção, etc.)."""
-    nome = models.CharField(max_length=100, unique=True)
+# Módulo: Categotias de Gastos e Controle Financeiro
+class CategoriaGasto(models.Model):
+    nome = models.CharField(max_length=100, unique=True, help_text="Ex: Alimentação, Limpeza, Manutenção")
+
+    class Meta:
+        verbose_name = "Categoria de Gasto"
+        verbose_name_plural = "Categorias de Gastos"
+        ordering = ['nome']
 
     def __str__(self):
         return self.nome
 
 class Gasto(models.Model):
     descricao = models.CharField(max_length=255)
-    categoria = models.ForeignKey(GastoCategoria, on_delete=models.PROTECT)
+    categoria = models.ForeignKey(CategoriaGasto, on_delete=models.PROTECT, related_name='gastos')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data_gasto = models.DateField(default=timezone.now, db_index=True)  # <= index
 
     def __str__(self):
         return f"Gasto de R$ {self.valor} em {self.data_gasto.strftime('%d/%m/%Y')} ({self.categoria.nome})"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # gestao/models.py
-# from django.db import models
-# from django.contrib.auth.models import User
-
-# # Módulo: Configurações
-# class ConfiguracaoHotel(models.Model):
-#     nome_hotel = models.CharField(max_length=100)
-#     endereco = models.CharField(max_length=255)
-#     telefone = models.CharField(max_length=20)
-#     email = models.EmailField()
-#     logo = models.ImageField(upload_to='logos/', null=True, blank=True)
-
-# # Módulo: Clientes
-# class Cliente(models.Model):
-#     nome_completo = models.CharField(max_length=150)
-#     cpf = models.CharField(max_length=14, unique=True)
-#     email = models.EmailField(unique=True)
-#     telefone = models.CharField(max_length=20)
-#     data_nascimento = models.DateField()
-#     data_cadastro = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return self.nome_completo
-
-# # Módulo: Acomodações
-# class TipoAcomodacao(models.Model):
-#     nome = models.CharField(max_length=100)
-
-#     def __str__(self):
-#         return self.nome
-
-# class Acomodacao(models.Model):
-#     STATUS_CHOICES = (
-#         ('disponivel', 'Disponível'),
-#         ('ocupado', 'Ocupado'),
-#         ('manutencao', 'Em Manutenção'),
-#     )
-#     numero = models.CharField(max_length=10)
-#     tipo = models.ForeignKey(TipoAcomodacao, on_delete=models.PROTECT)
-#     valor_diaria = models.DecimalField(max_digits=10, decimal_places=2)
-#     descricao = models.TextField(null=True, blank=True)
-#     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disponivel')
-
-#     def __str__(self):
-#         return f"{self.tipo.nome} - {self.numero}"
-
-# # Módulo: Estacionamento
-# class VagaEstacionamento(models.Model):
-#     numero_vaga = models.CharField(max_length=10, unique=True)
-#     # Vínculo pode ser opcional
-#     acomodacao_vinculada = models.OneToOneField(Acomodacao, on_delete=models.SET_NULL, null=True, blank=True)
-#     status = models.CharField(max_length=20, default='disponivel') # disponivel, ocupado
-
-# # Módulo: Estoque e Frigobar
-# class ItemEstoque(models.Model):
-#     nome = models.CharField(max_length=100)
-#     descricao = models.TextField(blank=True)
-#     quantidade = models.PositiveIntegerField(default=0)
-#     preco_venda = models.DecimalField(max_digits=10, decimal_places=2)
-
-#     def __str__(self):
-#         return self.nome
-
-# class Frigobar(models.Model):
-#     acomodacao = models.OneToOneField(Acomodacao, on_delete=models.CASCADE)
-#     itens = models.ManyToManyField(ItemEstoque, through='ItemFrigobar')
-
-# class ItemFrigobar(models.Model):
-#     frigobar = models.ForeignKey(Frigobar, on_delete=models.CASCADE)
-#     item = models.ForeignKey(ItemEstoque, on_delete=models.CASCADE)
-#     quantidade = models.PositiveIntegerField()
-
-# # Módulo: Reservas
-# class Reserva(models.Model):
-#     STATUS_CHOICES = (
-#         ('confirmada', 'Confirmada'),
-#         ('checkin', 'Check-in'),
-#         ('checkout', 'Check-out'),
-#         ('cancelada', 'Cancelada'),
-#     )
-#     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-#     acomodacao = models.ForeignKey(Acomodacao, on_delete=models.CASCADE)
-#     data_checkin = models.DateField()
-#     data_checkout = models.DateField()
-#     data_reserva = models.DateTimeField(auto_now_add=True)
-#     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmada')
-#     valor_total_diarias = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-#     desconto = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-#     valor_extra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-#     valor_final_pago = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-
-# # Módulo: Consumo
-# class Consumo(models.Model):
-#     reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='consumos')
-#     item = models.ForeignKey(ItemEstoque, on_delete=models.CASCADE)
-#     quantidade = models.PositiveIntegerField()
-#     data_consumo = models.DateTimeField(auto_now_add=True)
-
-# # Módulo: Pagamentos
-# class FormaPagamento(models.Model):
-#     nome = models.CharField(max_length=50) # Dinheiro, Cartão, Pix
-
-#     def __str__(self):
-#         return self.nome
-
-# class Pagamento(models.Model):
-#     reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE)
-#     forma_pagamento = models.ForeignKey(FormaPagamento, on_delete=models.PROTECT)
-#     valor = models.DecimalField(max_digits=10, decimal_places=2)
-#     data_pagamento = models.DateTimeField(auto_now_add=True)
-
-# # Módulo: Funcionários (usa o User do Django)
-# # O controle de acesso (Admin/Usuário) é feito pelos grupos e permissões do Django.

@@ -7,11 +7,15 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">{% if object %}Editar Item do Estoque{% else %}Adicionar Novo Item ao Estoque{% endif %}</h1>
 </div>
-<form method="post" novalidate>
-    {% csrf_token %}
-    {{ form.as_p }}
-    <hr>
-    <button type="submit" class="btn btn-primary">Salvar Item</button>
-    <a href="{% url 'item_estoque_list' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="card">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {{ form.as_p }}
+            <hr>
+            <button type="submit" class="btn btn-primary">Salvar Item</button>
+            <a href="{% url 'item_estoque_list' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
 {% endblock %}

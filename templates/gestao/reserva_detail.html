@@ -50,11 +50,44 @@
             <div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Item</th><th>Qtd.</th><th>Preço Unit.</th><th>Total</th></tr></thead><tbody>{% for consumo in reserva.consumos.all %}<tr><td>{{ consumo.item.nome }}</td><td>{{ consumo.quantidade }}</td><td>R$ {{ consumo.preco_unitario }}</td><td>R$ {{ consumo.total }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center">Nenhum consumo registado.</td></tr>{% endfor %}</tbody></table></div>
         </div>
         <!-- Card de Pagamentos -->
-        <div class="card">
+        <div class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">Pagamentos
-                {% if reserva.status == 'checkin' or reserva.status == 'checkout' %}<a href="{% url 'pagamento_add' reserva.pk %}" class="btn btn-sm btn-success"><i class="bi bi-cash-coin"></i> Adicionar Pagamento</a>{% endif %}
+                {% if perms.gestao.add_pagamento %}
+                    <a href="{% url 'pagamento_add' reserva.pk %}" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-lg"></i> Adicionar Pagamento
+                    </a>
+                {% endif %}
             </div>
-            <div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Data</th><th>Forma de Pagamento</th><th>Valor</th></tr></thead><tbody>{% for pagamento in reserva.pagamentos.all %}<tr><td>{{ pagamento.data_pagamento|date:"d/m/Y H:i" }}</td><td>{{ pagamento.forma_pagamento.nome }}</td><td>R$ {{ pagamento.valor }}</td></tr>{% empty %}<tr><td colspan="3" class="text-center">Nenhum pagamento registado.</td></tr>{% endfor %}</tbody></table></div>
+            <div class="card-body p-0">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Forma de Pagamento</th>
+                            <th>Valor</th>
+                            <th class="text-end">Ações</th> </tr>
+                    </thead>
+                    <tbody>
+                        {% for pagamento in reserva.pagamentos.all %}
+                        <tr>
+                            <td>{{ pagamento.data_pagamento|date:"d/m/Y" }}</td>
+                            <td>{{ pagamento.forma_pagamento.nome }}</td>
+                            <td>R$ {{ pagamento.valor|floatformat:2 }}</td>
+                            <td class="text-end">
+                                {% if perms.gestao.change_pagamento %}
+                                <a href="{% url 'pagamento_edit' pagamento.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></a>
+                                {% endif %}
+                                {% if perms.gestao.delete_pagamento %}
+                                <a href="{% url 'pagamento_delete' pagamento.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Excluir"><i class="bi bi-trash"></i></a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">Nenhum pagamento registado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     <div class="col-md-4">
