@@ -1,6 +1,5 @@
 <!-- ========================================================================== -->
-<!-- ARQUIVO: templates/base.html (ATUALIZANDO)                                 -->
-<!-- DESCRIÇÃO: Atualiza o link do menu "Clientes" para ser dinâmico.           -->
+<!-- ARQUIVO: templates/base.html (RESPONSIVO COM OFFCANVAS CORRIGIDO)          -->
 <!-- ========================================================================== -->
 <!doctype html>
 <html lang="pt-br">
@@ -16,23 +15,48 @@
     <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    
-    <!-- Estilo customizado -->
     <style>
-        body { display: flex; min-height: 100vh; flex-direction: column; font-family: 'Inter', sans-serif;  }
+        body { 
+            display: flex; 
+            min-height: 100vh; 
+            flex-direction: column; 
+            font-family: 'Inter', sans-serif;  
+        }
         .main-container { display: flex; flex: 1; }
-        .sidebar { width: 280px; background-color: #f8f9fa; border-right: 1px solid #dee2e6; }
         .content { flex: 1; padding: 2rem; }
-        .sidebar .nav-link { color: #333; }
-        .sidebar .nav-link.active, .sidebar .nav-link:hover { color: #007bff; background-color: #e9ecef; }
+        .sidebar .nav-link { color: #272727; }
+
+        /* Sidebar estilo desktop */
+        @media (min-width: 768px) {
+            #sidebarMenu {
+                position: relative !important; /* Corrige posição */
+                transform: none !important;
+                visibility: visible !important;
+                border-right: 1px solid #dee2e6;
+                width: 280px !important;
+                top: 0;
+                height: auto;
+            }
+            .offcanvas-backdrop {
+                display: none !important; /* Remove overlay no desktop */
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 767px) {
+            .content { padding: 1rem; }
+        }
     </style>
 </head>
 <body>
 
 <header class="navbar navbar-dark bg-dark sticky-top flex-md-nowrap p-0 shadow">
-    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6" href="{% url 'dashboard' %}">Pousada Manager Pro</a>
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6" href="{% url 'dashboard' %}">
+        Pousada Manager Pro
+    </a>
     
-    <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+    <!-- Botão hamburguer no mobile -->
+    <button class="navbar-toggler d-md-none ms-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
         <span class="navbar-toggler-icon"></span>
     </button>
 
@@ -63,58 +87,30 @@
 </header>
 
 <div class="container-fluid main-container">
-    <!-- Sidebar -->
-    <nav class="d-md-block sidebar collapse">
-        <div class="position-sticky pt-3">
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link" aria-current="page" href="{% url 'dashboard' %}">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'reserva_list' %}">
-                        <i class="bi bi-calendar-check"></i> Reservas
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'cliente_list' %}">
-                        <i class="bi bi-people"></i> Clientes
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'acomodacao_list' %}">
-                        <i class="bi bi-building"></i> Acomodações
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'item_estoque_list' %}">
-                        <i class="bi bi-box-seam"></i> Estoque
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'vaga_estacionamento_list' %}">
-                        <i class="bi bi-p-square"></i> Estacionamento
-                    </a>
-                </li>
-                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'relatorio_acomodacoes' %}">
-                        <i class="bi bi-graph-up"></i> Relatórios
-                    </a>
-                </li>
+    <!-- Sidebar Offcanvas -->
+    <div class="offcanvas offcanvas-start sidebar" tabindex="-1" id="sidebarMenu">
+        <div class="offcanvas-header d-md-none">
+            <h5 class="offcanvas-title">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <ul class="nav flex-column pt-3">
+                <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'reserva_list' %}"><i class="bi bi-calendar-check"></i> Reservas</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'cliente_list' %}"><i class="bi bi-people"></i> Clientes</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'acomodacao_list' %}"><i class="bi bi-building"></i> Acomodações</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'item_estoque_list' %}"><i class="bi bi-box-seam"></i> Estoque</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'vaga_estacionamento_list' %}"><i class="bi bi-p-square"></i> Estacionamento</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'relatorio_acomodacoes' %}"><i class="bi bi-graph-up"></i> Relatórios</a></li>
                 {% if perms.auth.change_user %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'financeiro' %}">
-                        <i class="bi bi-currency-dollar"></i> Financeiro
-                    </a>
-                </li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'financeiro' %}"><i class="bi bi-currency-dollar"></i> Financeiro</a></li>
                 {% endif %}
                 <li class="nav-item">
                     <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#configuracoesSubmenu" role="button" aria-expanded="false" aria-controls="configuracoesSubmenu">
                         <span><i class="bi bi-gear"></i> Configurações</span>
                         <i class="bi bi-chevron-down small"></i>
                     </a>
-                    <div class="collapse" id="configuracoesSubmenu" data-bs-parent=".sidebar">
+                    <div class="collapse" id="configuracoesSubmenu" data-bs-parent="#sidebarMenu">
                         <ul class="nav flex-column submenu ms-3">
                             <li class="nav-item"><a class="nav-link" href="{% url 'configuracao_hotel' %}">Dados do Hotel</a></li>
                             <li class="nav-item"><a class="nav-link" href="{% url 'forma_pagamento_list' %}">Formas de Pagamento</a></li>
@@ -124,22 +120,19 @@
                 </li>
             </ul>
         </div>
-    </nav>
+    </div>
 
+    <!-- Conteúdo -->
     <main class="content">
         {% block content %}
-        <!-- O conteúdo específico de cada página será injetado aqui -->
         {% endblock %}
     </main>
 </div>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<!-- Chart.js v4 -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 
 {% block scripts %}{% endblock %}
 

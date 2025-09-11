@@ -10,7 +10,7 @@ SECRET_KEY = 'django-insecure-chave-secreta-de-exemplo' # Em produção, use uma
 
 DEBUG = False 
 
-ALLOWED_HOSTS = ['*'] # Em produção, coloque seu domínio aqui, ex: ['meuhotel.com']
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", 'laaztech.com'] # Em produção, coloque seu domínio aqui, ex: ['meuhotel.com']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -99,3 +99,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ==========================================================
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard' # A 'name' da URL do seu painel principal
+
+# settings.py
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
