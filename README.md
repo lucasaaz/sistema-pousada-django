@@ -7,7 +7,6 @@ Um sistema web robusto e completo para a administração de hotéis, pousadas e 
 ![Badge SQLite](https://img.shields.io/badge/SQLite-3-blue?logo=sqlite)
 ![Badge License](https://img.shields.io/badge/License-MIT-brightgreen)
 
-*(Opcional: Insira aqui um screenshot da tela principal do sistema)*
 
 ## ✨ Funcionalidades Principais
 
