@@ -15,6 +15,7 @@ from .models import (
     Reserva,
     Consumo,
     FormaPagamento,
+    Funcionario,
     Pagamento,
 )
 
@@ -30,4 +31,5 @@ admin.site.register(ItemFrigobar)
 admin.site.register(Reserva)
 admin.site.register(Consumo)
 admin.site.register(FormaPagamento)
+admin.site.register(Funcionario)
 admin.site.register(Pagamento)
