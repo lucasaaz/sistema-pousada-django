@@ -1,4 +1,4 @@
-<!doctype html>
+{% load static %} <!doctype html>
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
@@ -33,7 +33,7 @@
         <div class="card-body p-5">
             
             <div class="text-center">
-                <img src="/media/logos/logo.jpg" alt="Logo da Pousada" class="logo rounded-circle">
+                <img src="{% static 'img/logo.jpg' %}" alt="Logo da Pousada" class="logo rounded-circle">
                 <h3 class="card-title mb-4">Acesso ao Sistema</h3>
             </div>
             

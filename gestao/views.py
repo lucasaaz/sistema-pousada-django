@@ -761,7 +761,7 @@ class FuncionarioListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
     ordering = ['username']
 
 class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
-    permission_required = 'gestao.add_vagaestacionamento'
+    permission_required = 'gestao.add_funcionario'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
     model = User
@@ -770,7 +770,7 @@ class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateV
     success_url = reverse_lazy('funcionario_list')
 
 class FuncionarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
-    permission_required = 'gestao.change_vagaestacionamento'
+    permission_required = 'gestao.change_funcionario'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
     model = User
