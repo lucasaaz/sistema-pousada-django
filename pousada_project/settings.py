@@ -3,14 +3,29 @@
 # DESCRIÇÃO: Arquivo principal de configurações do projeto Django.
 # ==============================================================================
 import os
+import dj_database_url
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SECRET_KEY = 'django-insecure-chave-secreta-de-exemplo' # Em produção, use uma chave segura!
+# Use variáveis de ambiente para a SECRET_KEY e o DEBUG
+SECRET_KEY = os.environ.get('SECRET_KEY')
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-DEBUG = False 
+# ALLOWED_HOSTS pode ser configurado via variável de ambiente com valores separados por vírgula
+ALLOWED_HOSTS = []
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", 'laaztech.com'] # Em produção, coloque seu domínio aqui, ex: ['meuhotel.com']
+# Adiciona o host da Render quando estiver em produção
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# ... (MIDDLEWARE)
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Adicione o WhiteNoise AQUI
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    # ... o resto do middleware
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -26,6 +41,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -69,11 +85,18 @@ WSGI_APPLICATION = 'pousada_project.wsgi.application'
 #         },
 #     }
 # }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#     }
+# }
+# Configuração da Base de Dados (lê a URL fornecida pela Render)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -88,6 +111,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+# Pasta destino para collectstatic
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Usar WhiteNoise para servir arquivos estáticos em produção
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -100,5 +127,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard' # A 'name' da URL do seu painel principal
 
-# settings.py
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# settings.py (nota: STATIC_ROOT já definido acima)

@@ -1,34 +1,52 @@
-# Sistema de Gerenciamento de Hotéis e Pousadas
+# 🏨 Sistema de Gerenciamento de Hotéis e Pousadas
 
-Este é um sistema completo desenvolvido em Python com o framework Django e banco de dados MySQL para a gestão de estabelecimentos hoteleiros.
+Um sistema web robusto e completo para a administração de hotéis, pousadas e outros estabelecimentos de hospedagem. Desenvolvido com Python, Django e SQLite, o projeto oferece uma solução integrada para gerenciar reservas, hóspedes, acomodações e operações diárias.
+
+![Badge Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)
+![Badge Django](https://img.shields.io/badge/Django-4.x-green?logo=django)
+![Badge SQLite](https://img.shields.io/badge/SQLite-3-blue?logo=sqlite)
+![Badge License](https://img.shields.io/badge/License-MIT-brightgreen)
+
+
+## ✨ Funcionalidades Principais
+
+* **Dashboard Administrativo**: Visão geral com estatísticas de ocupação, check-ins/check-outs previstos e outras métricas importantes.
+* **Gestão de Reservas**: Crie, edite, visualize e filtre reservas com um calendário de disponibilidade.
+* **Controle de Hóspedes (CRM)**: Cadastro completo de clientes com histórico de hospedagens.
+* **Gerenciamento de Acomodações**: Configure diferentes tipos de quartos (standard, luxo, etc.), defina preços e gerencie o status (disponível, ocupado, em manutenção).
+* **Check-in e Check-out Simplificado**: Processe a entrada e saída de hóspedes de forma rápida, com cálculo automático de despesas.
+* **Gestão Financeira**: Controle de pagamentos, registro de consumos extras e fechamento de contas.
+* **Painel de Configurações**: Personalize informações do hotel, formas de pagamento, e outros parâmetros do sistema.
+
+## 🛠️ Tecnologias Utilizadas
+
+* **Backend**: Python, Django Framework
+* **Banco de Dados**: SQLite 3 (padrão do Django para desenvolvimento)
+* **Frontend**: HTML, CSS, JavaScript (com templates Django)
+* **Controle de Versão**: Git
 
 ## ⚙️ Pré-requisitos
 
-1.  **Python 3.8+**: [https://www.python.org/downloads/](https://www.python.org/downloads/) (Marque "Add Python to PATH" na instalação).
-2.  **XAMPP**: [https://www.apachefriends.org/index.html](https://www.apachefriends.org/index.html) (Inclui Apache e MySQL).
-3.  **Git**: [https://git-scm.com/downloads](https://git-scm.com/downloads).
+Antes de começar, garanta que você tenha os seguintes softwares instalados:
 
-## 🚀 Instalação Local
+1.  **Python 3.8+**: [python.org](https://www.python.org/downloads/) (Lembre-se de marcar a opção "Add Python to PATH" durante a instalação).
+2.  **Git**: [git-scm.com](https://git-scm.com/downloads) (Para clonar o repositório).
 
-### 1. Configuração do Banco de Dados
+## 🚀 Guia de Instalação Local
 
--   Abra o painel de controle do **XAMPP** e inicie os módulos **Apache** e **MySQL**.
--   Abra seu navegador e acesse `http://localhost/phpmyadmin`.
--   Clique em **"Novo"** no menu à esquerda.
--   Dê o nome ao banco de dados, por exemplo: `hotel_db`.
--   Escolha o agrupamento (collation) como `utf8mb4_general_ci` e clique em **"Criar"**.
+Siga estes passos para configurar o ambiente de desenvolvimento em sua máquina.
 
-### 2. Configuração do Projeto
-
--   Abra um terminal (Prompt de Comando, PowerShell ou Terminal).
--   Clone o repositório do projeto (se estiver no GitHub) ou descompacte os arquivos em uma pasta.
+1.  **Clone o Repositório**
+    Abra seu terminal e clone o projeto:
     ```sh
-    git clone <URL_DO_REPOSITORIO>
+    git clone <URL_DO_SEU_REPOSITORIO>
     cd nome-da-pasta-do-projeto
     ```
--   Crie e ative um ambiente virtual. Isso isola as dependências do seu projeto.
+
+2.  **Crie e Ative o Ambiente Virtual**
+    Isso mantém as dependências do projeto organizadas.
     ```sh
-    # Criar ambiente virtual
+    # Criar o ambiente
     python -m venv venv
 
     # Ativar no Windows
@@ -37,68 +55,40 @@ Este é um sistema completo desenvolvido em Python com o framework Django e banc
     # Ativar no Linux ou macOS
     source venv/bin/activate
     ```
--   Instale todas as bibliotecas Python necessárias com um único comando:
+
+3.  **Instale as Dependências**
+    Instale todas as bibliotecas necessárias com um único comando:
     ```sh
     pip install -r requirements.txt
     ```
-    *(O `requirements.txt` deve conter `Django`, `mysqlclient`, etc.)*
 
-### 3. Conectando o Projeto ao Banco de Dados
-
--   Abra o arquivo `hotel_project/settings.py` em um editor de código.
--   Localize a seção `DATABASES` e edite-a com as informações do seu MySQL no XAMPP. (Por padrão, o usuário é `root` e a senha é vazia).
-
-    ```python
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'hotel_db',        # Nome do banco que você criou
-            'USER': 'root',            # Usuário padrão do XAMPP
-            'PASSWORD': '',            # Senha padrão do XAMPP (vazia)
-            'HOST': '127.0.0.1',
-            'PORT': '3306',
-        }
-    }
+4.  **Execute as Migrações do Banco de Dados**
+    Este comando criará o arquivo do banco de dados SQLite (`db.sqlite3`) e as tabelas do sistema.
+    ```sh
+    python manage.py migrate
     ```
 
-### 4. Finalizando a Instalação
-
--   No terminal, com o ambiente virtual ainda ativo, execute os seguintes comandos para criar as tabelas no banco de dados e criar um usuário administrador:
+5.  **Crie um Superusuário**
+    Crie o primeiro usuário administrador para acessar o painel de controle:
     ```sh
-    # Cria as tabelas com base no arquivo models.py
-    python manage.py migrate
-
-    # Cria o primeiro usuário administrador do sistema
     python manage.py createsuperuser
     ```
-    *(Siga as instruções para definir nome de usuário, email e senha).*
+    (Siga as instruções para definir o nome de usuário, e-mail e senha).
 
-### 5. Executando o Sistema
+## ▶️ Executando o Sistema
 
--   Tudo pronto! Inicie o servidor de desenvolvimento local:
+1.  Com tudo pronto, inicie o servidor de desenvolvimento:
     ```sh
     python manage.py runserver
     ```
--   Abra seu navegador e acesse: **`http://127.0.0.1:8000`** para ver o sistema funcionando.
--   Para acessar o painel administrativo (útil para cadastros iniciais), acesse: **`http://127.0.0.1:8000/admin`**.
+2.  Abra seu navegador e acesse a aplicação:
+    * **Página Inicial**: `http://127.0.0.1:8000`
+    * **Painel Administrativo**: `http://127.0.0.1:8000/admin`
 
-## 📝 Uso Básico
+## 🌐 Implantação (Deploy)
 
-1.  **Primeiro Acesso**: Faça login com o usuário administrador que você criou.
-2.  **Configurações Iniciais**: Pelo painel de admin, cadastre os dados do hotel, os tipos de acomodação, as formas de pagamento e os itens de estoque.
-3.  **Cadastro**: Use a interface principal para cadastrar seus primeiros clientes e acomodações.
-4.  **Criar Reserva**: Vá para a seção de Reservas, use o filtro de datas para verificar a disponibilidade e crie uma nova reserva, vinculando um cliente e uma acomodação.
-5.  **Check-in / Check-out**: Gerencie o status da reserva diretamente pela lista de reservas, realizando o check-in na chegada do hóspede e o check-out na saída, momento em que o sistema calculará os consumos e o valor final.
+Para tornar o sistema acessível publicamente, você precisará implantá-lo em um servidor de hospedagem.
 
-## 🌐 Implantação em Hospedagem (Deploy)
-
-Para acessar o sistema de qualquer lugar com internet, o projeto precisa ser implantado em um servidor de hospedagem que suporte Python/Django.
-
-1.  **Escolha um Provedor**: Hostinger, DigitalOcean, PythonAnywhere, Heroku, etc.
-2.  **Configuração**: O processo geralmente envolve:
-    -   Enviar os arquivos do projeto para o servidor (via Git ou FTP).
-    -   Configurar um banco de dados MySQL no servidor de hospedagem e atualizar o arquivo `settings.py`.
-    -   Instalar as dependências do `requirements.txt`.
-    -   Configurar um servidor de aplicação (como Gunicorn ou uWSGI) para servir o projeto Django.
-    -   Configurar um servidor web (como Nginx ou Apache) para direcionar o tráfego para a aplicação.
-3.  **Ajustes Finais**: Em `settings.py`, certifique-se de que `DEBUG = False` e configure o `ALLOWED_HOSTS` com o seu domínio.
+* **Recomendação de Banco de Dados**: Para produção, é altamente recomendável migrar de SQLite para um banco de dados mais robusto como **PostgreSQL** ou **MySQL**. O SQLite é excelente para desenvolvimento, mas pode não ser adequado para ambientes com muitos acessos simultâneos.
+* **Provedor de Hospedagem**: Escolha um serviço que suporte Python/Django (Ex: Hostinger, DigitalOcean, PythonAnywhere, Heroku).
+* **Ajustes de Segurança**: Em `settings.py`, certifique-se de que `DEBUG = False` e configure o `ALLOWED_HOSTS` com o seu domínio. A `SECRET_KEY` também deve ser única e mantida em segredo.
