@@ -149,6 +149,16 @@ body {
             <span class="value"></span>
         </div>
     </div>
+    <div class="row">
+        <div class="field-group">
+            <span class="label">Valor Total:</span>
+            <span class="value">{{ reserva.valor_total_diarias }}</span>
+        </div>
+        <div class="field-group">
+            <span class="label">Diaria(s):</span>
+            <span class="value">{{ reserva.num_dias }}</span>
+        </div>
+    </div>
 
     <div class="section-title">Informações do Hóspede</div>
     <div class="row">
@@ -166,23 +176,7 @@ body {
             <span class="label">CPF:</span>
             <span class="value filled-field">{{ cliente.cpf }}</span>
         </div>
-        <div class="field-group">
-            <span class="label">Sexo:</span>
-            <span class="value"></span>
-        </div>
     </div>
-    <div class="row">
-        <div class="field-group">
-            <span class="label">Telefone:</span>
-            <span class="value filled-field">{{ cliente.telefone }}</span>
-        </div>
-        <div class="field-group">
-            <span class="label">E-mail:</span>
-            <span class="value filled-field">{{ cliente.email }}</span>
-        </div>
-    </div>
-
-    <div class="section-title">Documento de Identidade</div>
     <div class="row">
         <div class="field-group">
             <span class="label">Documento:</span>
@@ -221,7 +215,7 @@ body {
     </div>
     <div class="row">
         <div class="field-group">
-            <span class="label">Completo:</span>
+            <span class="label">Complemento:</span>
             <span class="value filled-field">{{ cliente.complemento }}</span>
         </div>
         <div class="field-group">
@@ -231,6 +225,16 @@ body {
         <div class="field-group">
             <span class="label">CEP:</span>
             <span class="value filled-field">{{ cliente.cep }}</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="field-group">
+            <span class="label">Telefone:</span>
+            <span class="value filled-field">{{ cliente.telefone }}</span>
+        </div>
+        <div class="field-group">
+            <span class="label">E-mail:</span>
+            <span class="value filled-field">{{ cliente.email }}</span>
         </div>
     </div>
 
