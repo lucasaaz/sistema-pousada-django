@@ -118,7 +118,15 @@ body {
         </div>
         <div class="field-group small-text">
             <span class="label">N° Acompanhantes:</span>
-            <span class="value"></span>
+            <span class="value filled-field">
+                {{ reserva.num_adultos }} adulto(s)
+                {% if reserva.num_criancas_5 > 0 %}
+                    , {{ reserva.num_criancas_5 }} criança(s) até 5 anos
+                {% endif %}
+                {% if reserva.num_criancas_12 > 0 %}
+                    , {{ reserva.num_criancas_12 }} criança(s) de 6 a 12 anos
+                {% endif %}
+            </span>
         </div>
     </div>
     <div class="row">
@@ -152,22 +160,18 @@ body {
     <div class="row">
         <div class="field-group">
             <span class="label">Data Nascimento:</span>
-            <span class="value"></span>
-        </div>
-        <div class="field-group">
-            <span class="label">Idade:</span>
-            <span class="value"></span>
+            <span class="value filled-field">{{ cliente.data_nascimento }}</span>
         </div>
         <div class="field-group">
             <span class="label">CPF:</span>
             <span class="value filled-field">{{ cliente.cpf }}</span>
         </div>
-    </div>
-    <div class="row">
         <div class="field-group">
             <span class="label">Sexo:</span>
             <span class="value"></span>
         </div>
+    </div>
+    <div class="row">
         <div class="field-group">
             <span class="label">Telefone:</span>
             <span class="value filled-field">{{ cliente.telefone }}</span>
@@ -198,21 +202,35 @@ body {
     <div class="row">
         <div class="field-group">
             <span class="label">Endereço:</span>
-            <span class="value"></span>
+            <span class="value filled-field">{{ cliente.logradouro }}</span>
         </div>
     </div>
     <div class="row">
         <div class="field-group">
+            <span class="label">N°:</span>
+            <span class="value filled-field">{{ cliente.numero }}</span>
+        </div>
+        <div class="field-group">
+            <span class="label">Bairro:</span>
+            <span class="value filled-field">{{ cliente.bairro }}</span>
+        </div>
+        <div class="field-group">
             <span class="label">Cidade:</span>
-            <span class="value"></span>
+            <span class="value filled-field">{{ cliente.cidade }}</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="field-group">
+            <span class="label">Completo:</span>
+            <span class="value filled-field">{{ cliente.complemento }}</span>
         </div>
         <div class="field-group">
             <span class="label">Estado:</span>
-            <span class="value"></span>
+            <span class="value filled-field">{{ cliente.estado }}</span>
         </div>
         <div class="field-group">
             <span class="label">CEP:</span>
-            <span class="value"></span>
+            <span class="value filled-field">{{ cliente.cep }}</span>
         </div>
     </div>
 

@@ -2,35 +2,92 @@
 <!-- ARQUIVO: templates/gestao/reserva_form.html (NOVO)                         -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
-
-{% block title %}
-    {% if reserva %}Editar Reserva{% else %}Adicionar Reserva{% endif %}
-{% endblock %}
+{% block title %}{% if object %}Editar Reserva{% else %}Adicionar Reserva{% endif %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">{% if reserva %}Editar Reserva{% else %}Adicionar Nova Reserva{% endif %}</h1>
-</div>
-
-<div class="card">
-    <div class="card-body">
-        <form method="post" novalidate>
-            {% csrf_token %}
-            
-            {% if form.non_field_errors %}
-                <div class="alert alert-danger">
-                    {% for error in form.non_field_errors %}
-                        <p>{{ error }}</p>
-                    {% endfor %}
-                </div>
-            {% endif %}
-
-            {{ form.as_p }}
-            <hr>
-            <button type="submit" class="btn btn-primary">Salvar Reserva</button>
-            <a href="{% url 'reserva_list' %}" class="btn btn-secondary">Cancelar</a>
-        </form>
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">{% if object %}Editar Reserva de {{ object.cliente }}{% else %}Adicionar Nova Reserva{% endif %}</h1>
     </div>
-</div>
 
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <p class="mb-0">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.cliente.id_for_label }}" class="form-label">{{ form.cliente.label }}</label>
+                        {{ form.cliente }}
+                        {{ form.cliente.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.acomodacao.id_for_label }}" class="form-label">{{ form.acomodacao.label }}</label>
+                        {{ form.acomodacao }}
+                        {{ form.acomodacao.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.data_checkin.id_for_label }}" class="form-label">{{ form.data_checkin.label }}</label>
+                        {{ form.data_checkin }}
+                        {{ form.data_checkin.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.data_checkout.id_for_label }}" class="form-label">{{ form.data_checkout.label }}</label>
+                        {{ form.data_checkout }}
+                        {{ form.data_checkout.errors }}
+                    </div>
+                    
+                    <div class="col-12"><hr class="my-2"></div>
+
+                    <div class="col-md-4">
+                        <label for="{{ form.num_adultos.id_for_label }}" class="form-label">{{ form.num_adultos.label }}</label>
+                        {{ form.num_adultos }}
+                        {{ form.num_adultos.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.num_criancas_5.id_for_label }}" class="form-label">{{ form.num_criancas_5.label }}</label>
+                        {{ form.num_criancas_5 }}
+                        {{ form.num_criancas_5.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.num_criancas_12.id_for_label }}" class="form-label">{{ form.num_criancas_12.label }}</label>
+                        {{ form.num_criancas_12 }}
+                        {{ form.num_criancas_12.errors }}
+                    </div>
+
+                    <div class="col-12"><hr class="my-2"></div>
+
+                    <div class="col-md-4">
+                        <label for="{{ form.desconto.id_for_label }}" class="form-label">{{ form.desconto.label }}</label>
+                        {{ form.desconto }}
+                        {{ form.desconto.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.valor_extra.id_for_label }}" class="form-label">{{ form.valor_extra.label }}</label>
+                        {{ form.valor_extra }}
+                        {{ form.valor_extra.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                        {{ form.status }}
+                        {{ form.status.errors }}
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-white text-end px-0 pt-4 mt-2">
+                    <a href="{% url 'reserva_list' %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar Reserva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
 {% endblock %}

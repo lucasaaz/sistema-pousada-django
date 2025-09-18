@@ -1,0 +1,40 @@
+# Ficheiro .gitignore para projetos Django
+
+# 1. Ambientes Virtuais
+# Nunca envie a sua pasta de ambiente virtual (venv)
+venv/
+env/
+.venv/
+
+# 2. Ficheiros de Segredos e Configuração Local
+# O ficheiro .env contém senhas e chaves secretas
+.env
+*.env
+
+# 3. Base de Dados Local
+# Ignore a sua base de dados de desenvolvimento
+db.sqlite3
+db.sqlite3-journal
+
+# 4. Ficheiros de Cache do Python
+# Estes ficheiros são gerados automaticamente pelo Python
+__pycache__/
+*.pyc
+
+# 5. Ficheiros de Média e Estáticos (Gerados em Produção)
+# Ficheiros que os seus utilizadores enviam
+/media/
+# Pasta onde o 'collectstatic' junta todos os ficheiros estáticos
+/staticfiles/
+
+# 6. Ficheiros de Sistema Operacional e Editores
+# Ignora ficheiros específicos de macOS, Windows e alguns editores
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# 7. Ficheiros de Log
+# Ficheiros de registo de erros ou de atividade
+*.log

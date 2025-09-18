@@ -49,6 +49,10 @@ urlpatterns = [
     path('reservas/checkout/<int:pk>/', views.fazer_checkout, name='fazer_checkout'),
     path('reservas/<int:pk>/imprimir-contrato/', views.imprimir_contrato_checkin, name='imprimir_contrato_checkin'),
 
+    # URLs para Upload de Arquivos
+    path("reserva/<int:reserva_id>/arquivos/", views.arquivos_reserva, name="arquivos_reserva"),
+    path("arquivo/<int:arquivo_id>/abrir/", views.abrir_arquivo, name="abrir_arquivo"),
+
     # URLs para a Gestão de Estoque
     path('estoque/', views.ItemEstoqueListView.as_view(), name='item_estoque_list'),
     path('estoque/adicionar/', views.ItemEstoqueCreateView.as_view(), name='item_estoque_add'),

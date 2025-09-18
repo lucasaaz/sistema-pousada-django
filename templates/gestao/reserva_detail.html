@@ -39,6 +39,15 @@
                 <p><strong>Acomodação:</strong> {{ reserva.acomodacao }}</p>
                 <p><strong>Check-in:</strong> {{ reserva.data_checkin|date:"d/m/Y" }}</p>
                 <p><strong>Check-out:</strong> {{ reserva.data_checkout|date:"d/m/Y" }}</p>
+                <p><strong>Hóspedes:</strong> 
+                    {{ reserva.num_adultos }} adulto(s)
+                    {% if reserva.num_criancas_5 > 0 %}
+                        , {{ reserva.num_criancas_5 }} criança(s) até 5 anos
+                    {% endif %}
+                    {% if reserva.num_criancas_12 > 0 %}
+                        , {{ reserva.num_criancas_12 }} criança(s) de 6 a 12 anos
+                    {% endif %}
+                </p>
                 <p><strong>Status:</strong> <span class="badge bg-primary">{{ reserva.get_status_display }}</span></p>
             </div>
         </div>

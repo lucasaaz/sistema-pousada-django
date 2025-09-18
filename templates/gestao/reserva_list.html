@@ -72,6 +72,7 @@
                                     {% if current_ordering == '-data_checkout' %}<i class="bi bi-arrow-up"></i>{% endif %}
                                 </a>
                             </th>
+                            <th scope="col">Valor Total</th>
                             <th scope="col">Status</th>
                             <th scope="col" class="text-end">Ações</th>
                         </tr>
@@ -86,6 +87,7 @@
                             <td>Quarto {{ reserva.acomodacao.numero }}</td>
                             <td>{{ reserva.data_checkin|date:"d/m/Y" }}</td>
                             <td>{{ reserva.data_checkout|date:"d/m/Y" }}</td>
+                            <td>R$ {{ reserva.valor_total_diarias|floatformat:2 }}</td>
                             <td>
                                 {% if reserva.status == 'confirmada' %}
                                     <span class="badge bg-success text-light">{{ reserva.get_status_display }}</span>
@@ -105,6 +107,13 @@
                                 <a href="{% url 'reserva_detail' reserva.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Ver Detalhes">
                                     <i class="bi bi-eye"></i>
                                 </a>
+                                <a href="#" 
+                                class="btn btn-sm btn-outline-info" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#arquivosModal{{ reserva.id }}" 
+                                title="Arquivos da Reserva">
+                                    <i class="bi bi-file-earmark-arrow-up"></i>
+                                </a>
                                 <a href="{% url 'reserva_edit' reserva.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar">
                                     <i class="bi bi-pencil"></i>
                                 </a>
@@ -113,6 +122,42 @@
                                 </a>
                             </td>
                         </tr>
+                        
+                        <!-- Modal Arquivos -->
+                        <div class="modal fade" id="arquivosModal{{ reserva.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">
+                                            Arquivos da Reserva #{{ reserva.id }} - {{ reserva.cliente.nome_completo }}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                    </div>
+                                    
+                                    <div class="modal-body">
+                                        <form method="post" enctype="multipart/form-data" action="{% url 'arquivos_reserva' reserva.id %}">
+                                            {% csrf_token %}
+                                            <input type="file" name="arquivo" class="form-control mb-2">
+                                            <button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
+                                        </form>
+
+                                        <hr>
+                                        <ul>
+                                            {% for arquivo in reserva.arquivos.all %}
+                                                <li>
+                                                    {{ arquivo.arquivo.name }}
+                                                    <a href="{% url 'abrir_arquivo' arquivo.id %}" target="_blank" class="btn btn-sm btn-success">Abrir</a>
+                                                </li>
+                                            {% empty %}
+                                                <li>Nenhum arquivo enviado ainda.</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         {% empty %}
                         <tr>
                             <td colspan="6" class="text-center py-4">Nenhuma reserva encontrada.</td>
