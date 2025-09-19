@@ -79,10 +79,34 @@
                                         </tbody>
                                     </table>
 
+                                    <h6><i class="bi bi-people-fill me-1"></i>Hóspedes</h6>
+                                    <table class="table table-sm table-bordered">
+                                        <tbody>
+                                            <tr>
+                                                <td>Adulto(s)</td>
+                                                <td class="text-end fw-bold">{{ item.reserva.num_adultos }}</td>
+                                            </tr>
+
+                                            {% if item.reserva.num_criancas_5 > 0 %}
+                                            <tr>
+                                                <td>Criança(s) até 5 anos</td>
+                                                <td class="text-end fw-bold">{{ item.reserva.num_criancas_5 }}</td>
+                                            </tr>
+                                            {% endif %}
+
+                                            {% if item.reserva.num_criancas_12 > 0 %}
+                                            <tr>
+                                                <td>Criança(s) de 6 a 12 anos</td>
+                                                <td class="text-end fw-bold">{{ item.reserva.num_criancas_12 }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+
                                     <h6><i class="bi bi-door-closed me-1"></i>Hospedagem</h6>
                                     <table class="table table-sm table-bordered">
                                         <tbody>
-                                            <tr><td>{{ item.reserva.acomodacao }} ({{ item.reserva.num_dias }}x)</td><td>R$ {{ item.reserva.valor_total_diarias|floatformat:2 }}</td></tr>
+                                            <tr><td>{{ item.reserva.acomodacao }} - {{ item.reserva.num_dias }} dia(s)</td><td>R$ {{ item.reserva.valor_total_diarias|floatformat:2 }}</td></tr>
                                         </tbody>
                                     </table>
 

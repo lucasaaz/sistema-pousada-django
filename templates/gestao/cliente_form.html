@@ -3,50 +3,121 @@
 <!-- DESCRIÇÃO: Página com o formulário para adicionar ou editar um cliente.  -->
 <!-- ========================================================================== -->
 {% extends "base.html" %}
-
-{% block title %}
-  {% if is_update %}Editar Cliente{% else %}Adicionar Cliente{% endif %}
-{% endblock %}
+{% block title %}{% if object %}Editar Cliente{% else %}Adicionar Cliente{% endif %}{% endblock %}
 
 {% block content %}
-<div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
-    <h1 class="h2">{% if is_update %}Editar Cliente{% else %}Adicionar Cliente{% endif %}</h1>
-    <a href="{% url 'cliente_list' %}" class="btn btn-secondary">Voltar para a lista</a>
-</div>
-
-<div class="card">
-    <div class="card-body">
-        <form method="post" novalidate>
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-                <div class="alert alert-danger">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
-
-            {% for field in form %}
-                <div class="mb-3">
-                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <div class="form-text">{{ field.help_text }}</div>
-                    {% endif %}
-                    {% if field.errors %}
-                        <div class="text-danger small">{{ field.errors|striptags }}</div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-
-            <div class="d-flex gap-2">
-                <a href="{% url 'cliente_list' %}" class="btn btn-outline-secondary">Cancelar</a>
-                <button type="submit" class="btn btn-primary">
-                    {% if is_update %}Salvar Alterações{% else %}Salvar{% endif %}
-                </button>
-            </div>
-        </form>
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">{% if object %}Editar Cliente{% else %}Adicionar Novo Cliente{% endif %}</h1>
     </div>
-</div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <h5 class="mb-3">Dados Pessoais</h5>
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label">{{ form.nome_completo.label }}</label>
+                        {{ form.nome_completo }}
+                    </div>
+                    <div class="col-md-6"><label class="form-label">{{ form.cpf.label }}</label>{{ form.cpf }}</div>
+                    <div class="col-md-6"><label class="form-label">{{ form.data_nascimento.label }}</label>{{ form.data_nascimento }}</div>
+                    <div class="col-md-6"><label class="form-label">{{ form.email.label }}</label>{{ form.email }}</div>
+                    <div class="col-md-6"><label class="form-label">{{ form.telefone.label }}</label>{{ form.telefone }}</div>
+                </div>
+
+                <hr class="my-4">
+                <h5 class="mb-3">Endereço</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.cep.label }}</label>
+                        {{ form.cep }}
+                        <div id="cep-feedback" class="small text-muted"></div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">{{ form.logradouro.label }}</label>
+                        {{ form.logradouro }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.numero.label }}</label>
+                        {{ form.numero }}
+                    </div>
+                     <div class="col-md-8">
+                        <label class="form-label">{{ form.complemento.label }}</label>
+                        {{ form.complemento }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.bairro.label }}</label>
+                        {{ form.bairro }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.cidade.label }}</label>
+                        {{ form.cidade }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ form.estado.label }}</label>
+                        {{ form.estado }}
+                    </div>
+                </div>
+
+                <div class="card-footer bg-white text-end px-0 pt-4 mt-2">
+                    <a href="{% url 'cliente_list' %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+// Script para buscar endereço via API do ViaCEP
+{% block scripts %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cepInput = document.getElementById('cep-input');
+    const logradouroInput = document.getElementById('logradouro-input');
+    const bairroInput = document.getElementById('bairro-input');
+    const cidadeInput = document.getElementById('cidade-input');
+    const estadoInput = document.getElementById('estado-input');
+    const feedbackDiv = document.getElementById('cep-feedback');
+
+    cepInput.addEventListener('blur', function() {
+        // 'blur' é acionado quando o utilizador clica fora do campo do CEP
+        const cep = cepInput.value.replace(/\D/g, ''); // Remove caracteres não numéricos
+
+        if (cep.length !== 8) {
+            feedbackDiv.textContent = '';
+            return;
+        }
+
+        feedbackDiv.textContent = 'A procurar...';
+
+        fetch(`https://viacep.com.br/ws/${cep}/json/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro) {
+                    feedbackDiv.textContent = 'CEP não encontrado.';
+                    logradouroInput.value = '';
+                    bairroInput.value = '';
+                    cidadeInput.value = '';
+                    estadoInput.value = '';
+                } else {
+                    feedbackDiv.textContent = 'CEP encontrado!';
+                    logradouroInput.value = data.logradouro;
+                    bairroInput.value = data.bairro;
+                    cidadeInput.value = data.localidade;
+                    estadoInput.value = data.uf;
+                }
+            })
+            .catch(error => {
+                feedbackDiv.textContent = 'Erro ao buscar CEP.';
+                console.error('Erro:', error);
+            });
+    });
+});
+</script>
 {% endblock %}
 
 

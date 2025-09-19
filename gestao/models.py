@@ -23,6 +23,15 @@ class Cliente(models.Model):
     email = models.EmailField(unique=True, null=True, blank=True)
     telefone = models.CharField(max_length=20)
     data_cadastro = models.DateTimeField(auto_now_add=True)
+    data_nascimento = models.DateField(null=True, blank=True) # Atualizado 18.09.25
+    cep = models.CharField(max_length=9, null=True, blank=True, help_text="Formato: 00000-000") # Atualizado 18.09.25
+    logradouro = models.CharField(max_length=255, null=True, blank=True, verbose_name="Rua/Logradouro") # Atualizado 18.09.25
+    numero = models.CharField(max_length=20, null=True, blank=True) # Atualizado 18.09.25
+    complemento = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
+    bairro = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
+    cidade = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
+    estado = models.CharField(max_length=2, null=True, blank=True, verbose_name="UF") # Atualizado 18.09.25
+
 
     def __str__(self):
         return self.nome_completo
@@ -68,7 +77,7 @@ class ItemEstoque(models.Model):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True)
     quantidade = models.PositiveIntegerField(default=0)
-    preco_venda = models.DecimalField(max_digits=10, decimal_places=2)
+    preco_venda = models.DecimalField("Preço de Venda", max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"{self.nome} ({self.quantidade} un.)"
@@ -99,6 +108,9 @@ class Reserva(models.Model):
     data_checkout = models.DateField()
     data_reserva = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmada')
+    num_adultos = models.PositiveIntegerField("N° Adultos", default=1, help_text="N° de adultos") # Atualizado 18.09.25
+    num_criancas_5 = models.PositiveIntegerField("N° Crianças até 5 anos", default=0, help_text="Crianças até 5 anos") # Atualizado 18.09.25
+    num_criancas_12 = models.PositiveIntegerField("N° Crianças de 6 a 12 anos", default=0, help_text="Crianças de 6 a 12 anos") # Atualizado 18.09.25
     
     # Valores calculados no checkout
     valor_total_diarias = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
@@ -193,3 +205,12 @@ class Gasto(models.Model):
 
     def __str__(self):
         return f"Gasto de R$ {self.valor} em {self.data_gasto.strftime('%d/%m/%Y')} ({self.categoria.nome})"
+    
+# Módulo: Upload de Arquivos (ex: contratos assinados)
+class ArquivoReserva(models.Model):
+    reserva = models.ForeignKey("Reserva", on_delete=models.CASCADE, related_name="arquivos")
+    arquivo = models.FileField(upload_to="arquivos_reservas/")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Arquivo {self.id} da Reserva {self.reserva.id}"

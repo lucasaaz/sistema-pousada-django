@@ -10,6 +10,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.auth.decorators import login_required, permission_required
 from django.utils import timezone
 from datetime import datetime, timedelta, date
+from django.http import FileResponse
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.db.models import F, Count, Q, Sum, DecimalField, Value
 from django.core.paginator import Paginator
@@ -475,6 +476,37 @@ def imprimir_contrato_checkin(request, pk):
         'acomodacao': reserva.acomodacao,
     }
     return render(request, 'gestao/contrato_checkin.html', context)
+
+# ==============================================================================
+# === VIEWS PARA A GESTÃO DE ITENS (UPLOAD E LISTAGEM)                       ===
+# ============================================================================== 
+@login_required
+def arquivos_reserva(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+
+    if request.method == "POST":
+        form = ArquivoReservaForm(request.POST, request.FILES)
+        if form.is_valid():
+            arquivo = form.save(commit=False)
+            arquivo.reserva = reserva
+            arquivo.save()
+            return redirect("reserva_list")  # ou redirect de volta para a mesma página se preferir
+    else:
+        form = ArquivoReservaForm()
+
+    # Usando related_name definido no model
+    arquivos = reserva.arquivos.all()
+
+    return render(request, "gestao/arquivos_reserva.html", {
+        "reserva": reserva,
+        "form": form,
+        "arquivos": arquivos,
+    })
+
+
+def abrir_arquivo(request, arquivo_id):
+    arquivo = get_object_or_404(ArquivoReserva, pk=arquivo_id)
+    return FileResponse(arquivo.arquivo.open("rb"), as_attachment=False)
 
 # ==============================================================================
 # === VIEWS PARA A GESTÃO DE ESTOQUE                                         ===

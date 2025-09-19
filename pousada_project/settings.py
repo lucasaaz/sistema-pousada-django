@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = 'django-insecure-chave-secreta-de-exemplo' # Em produção, use uma chave segura!
 
-DEBUG = False 
+DEBUG = True
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", 'laaztech.com'] # Em produção, coloque seu domínio aqui, ex: ['meuhotel.com']
 
@@ -88,6 +88,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+# Pasta destino para collectstatic
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Usar WhiteNoise para servir arquivos estáticos em produção
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

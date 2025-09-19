@@ -1,0 +1,21 @@
+<h2>Arquivos da Reserva {{ reserva.id }} - {{ reserva.cliente.nome_completo }}</h2>
+
+<form method="post" enctype="multipart/form-data" action="{% url 'arquivos_reserva' reserva.id %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Adicionar Arquivo</button>
+</form>
+
+<hr>
+
+<ul>
+{% for arquivo in arquivos %}
+    <li>
+        {{ arquivo.arquivo.name }}
+        <a href="{% url 'abrir_arquivo' arquivo.id %}" class="btn btn-sm btn-success">Abrir</a>
+    </li>
+{% empty %}
+    <li>Nenhum arquivo ainda.</li>
+{% endfor %}
+</ul>
+
