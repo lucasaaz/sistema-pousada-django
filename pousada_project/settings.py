@@ -132,21 +132,21 @@ if not DEBUG:
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'sa-east-1') # Default para São Paulo
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'sa-east-1')
     
-    # Configurações para o comportamento dos arquivos
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
-    AWS_S3_FILE_OVERWRITE = False # Não sobrescreve arquivos com o mesmo nome
-    AWS_DEFAULT_ACL = None # Usa as permissões do bucket por padrão
-    AWS_S3_VERIFY = True # Verifica certificados SSL
+    # --- CORREÇÃO APLICADA AQUI ---
+    # O domínio customizado PRECISA incluir a região para funcionar corretamente.
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+    
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_S3_VERIFY = True
 
-    # AVISO PARA O DJANGO USAR O S3 PARA ARQUIVOS ESTÁTICOS
+    # Define os backends de armazenamento para S3
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
-    
-    # AVISO PARA O DJANGO USAR O S3 PARA ARQUIVOS DE MÍDIA (FOTOS DOS CLIENTES)
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-    # Define as URLs para os arquivos
+    # As URLs agora usarão o domínio correto, com a região
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
