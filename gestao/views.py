@@ -617,8 +617,9 @@ def buscar_clientes_view(request):
     return JsonResponse(results, safe=False)
 
 # ==============================================================================
-# === VIEWS PARA A GESTÃO DE ITENS (UPLOAD E LISTAGEM)                       ===
+# === View para listar e fazer upload de arquivos relacionados a uma reserva ===
 # ============================================================================== 
+
 @login_required
 def arquivos_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)

@@ -23,7 +23,7 @@ __pycache__/
 
 # 5. Ficheiros de Média e Estáticos (Gerados em Produção)
 # Ficheiros que os seus utilizadores enviam
-/media/
+
 # Pasta onde o 'collectstatic' junta todos os ficheiros estáticos
 /staticfiles/
 
