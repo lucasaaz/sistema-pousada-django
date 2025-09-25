@@ -128,24 +128,29 @@ LOGIN_REDIRECT_URL = 'dashboard' # A 'name' da URL do seu painel principal
 # --- CONFIGURAÇÃO DO ARMAZENAMENTO S3 ---
 # Esta configuração só será ativada se DEBUG for False (ou seja, em produção na Render)
 if not DEBUG:
+    # Chaves da AWS (lidas das variáveis de ambiente da Render)
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME')
-    AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = None
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'sa-east-1') # Default para São Paulo
     
-    # Define o backend de armazenamento para os arquivos de media (fotos dos clientes)
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-        },
-        "staticfiles": {
-            "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
-        },
-    }
+    # Configurações para o comportamento dos arquivos
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    AWS_S3_FILE_OVERWRITE = False # Não sobrescreve arquivos com o mesmo nome
+    AWS_DEFAULT_ACL = None # Usa as permissões do bucket por padrão
+    AWS_S3_VERIFY = True # Verifica certificados SSL
 
-# --- CONFIGURAÇÃO DAS URLS DE MEDIA ---
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+    # AVISO PARA O DJANGO USAR O S3 PARA ARQUIVOS ESTÁTICOS
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
+    
+    # AVISO PARA O DJANGO USAR O S3 PARA ARQUIVOS DE MÍDIA (FOTOS DOS CLIENTES)
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+    # Define as URLs para os arquivos
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+
+# Se estiver em desenvolvimento (DEBUG=True), mantenha a configuração local
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
