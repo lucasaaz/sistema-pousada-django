@@ -269,7 +269,7 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 if not DEBUG:
     # =======================
@@ -288,11 +288,11 @@ if not DEBUG:
     AWS_S3_VERIFY = True
 
     # Arquivos estáticos → S3
-    STATICFILES_STORAGE = "hotel_project.storages_backends.StaticStorage"
+    STATICFILES_STORAGE = "pousada_project.storages_backends.StaticStorage"
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 
     # Arquivos de mídia → S3
-    DEFAULT_FILE_STORAGE = "hotel_project.storages_backends.MediaStorage"
+    DEFAULT_FILE_STORAGE = "pousada_project.storages_backends.MediaStorage"
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 
 else:
