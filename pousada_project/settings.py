@@ -287,13 +287,13 @@ if not DEBUG:
     AWS_DEFAULT_ACL = None
     AWS_S3_VERIFY = True
 
-    # Usar S3 para arquivos estáticos e de mídia
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # Arquivos estáticos → S3
+    STATICFILES_STORAGE = "hotel_project.storages_backends.StaticStorage"
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 
-    # URLs dos arquivos
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    # Arquivos de mídia → S3
+    DEFAULT_FILE_STORAGE = "hotel_project.storages_backends.MediaStorage"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 
 else:
     # =======================
