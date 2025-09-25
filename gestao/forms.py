@@ -28,6 +28,7 @@ class ClienteForm(forms.ModelForm):
             'bairro': forms.TextInput(attrs={'class': 'form-control', 'id': 'bairro-input'}),
             'cidade': forms.TextInput(attrs={'class': 'form-control', 'id': 'cidade-input'}),
             'estado': forms.TextInput(attrs={'class': 'form-control', 'id': 'estado-input'}),
+            'foto': forms.FileInput(attrs={'class': 'd-none'}),            
         }
 
 # Formulario para Tipos de Acomodação
@@ -59,12 +60,24 @@ class AcomodacaoForm(forms.ModelForm):
 
 # Formulario para Reservas
 class ReservaForm(forms.ModelForm):
+
+    # Crie um campo de texto normal que será o campo de busca visível
+    cliente_busca = forms.CharField(
+        label='Cliente',
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Digite o nome ou CPF do cliente para buscar...',
+            'autocomplete': 'off' # Impede o autocomplete padrão do navegador
+        })
+    )
+    
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['cliente', 'acomodacao', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
+        fields = ['cliente_busca', 'cliente', 'acomodacao', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'cliente': forms.HiddenInput(),
             'acomodacao': forms.Select(attrs={'class': 'form-select'}),
             # Adiciona um seletor de data nativo do navegador para uma melhor experiência
             'data_checkin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),

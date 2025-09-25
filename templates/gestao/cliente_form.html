@@ -13,7 +13,7 @@
 
     <div class="card shadow-sm">
         <div class="card-body">
-            <form method="post" novalidate>
+            <form method="post" novalidate enctype="multipart/form-data">
                 {% csrf_token %}
                 <h5 class="mb-3">Dados Pessoais</h5>
                 <div class="row g-3">
@@ -21,9 +21,9 @@
                         <label class="form-label">{{ form.nome_completo.label }}</label>
                         {{ form.nome_completo }}
                     </div>
-                    <div class="col-md-6"><label class="form-label">{{ form.cpf.label }}</label>{{ form.cpf }}</div>
+                    <div class="col-md-6"><label class="form-label">{{ form.cpf.label }}</label>{{ form.cpf }} <div id="cpf-feedback" class="invalid-feedback d-block"></div> </div>
                     <div class="col-md-6"><label class="form-label">{{ form.data_nascimento.label }}</label>{{ form.data_nascimento }}</div>
-                    <div class="col-md-6"><label class="form-label">{{ form.email.label }}</label>{{ form.email }}</div>
+                    <div class="col-md-6"><label class="form-label">{{ form.email.label }}</label>{{ form.email }} <div id="email-feedback" class="invalid-feedback d-block"></div> </div>
                     <div class="col-md-6"><label class="form-label">{{ form.telefone.label }}</label>{{ form.telefone }}</div>
                 </div>
 
@@ -61,14 +61,59 @@
                     </div>
                 </div>
 
+                <hr class="my-4">
+                <h5 class="mb-3">Foto do Cliente</h5>
+
+                {% if cliente.foto %}
+                    <div class="mb-3">
+                        <p class="mb-1 small text-muted">Foto atual:</p>
+                        <img src="{{ cliente.foto.url }}" alt="Foto de {{ cliente.nome_completo }}" class="img-thumbnail" style="max-width: 250px;">
+                    </div>
+                {% endif %}
+
+                {{ form.foto }}
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#cameraModal">
+                    <i class="bi bi-camera-fill me-1"></i> 
+                    {% if cliente.foto %}Alterar Foto{% else %}Abrir Câmera{% endif %}
+                </button>
+                <div class="mt-3">
+                    <img id="foto-preview" src="#" alt="Foto capturada" class="img-thumbnail" style="max-width: 250px; display: none;">
+                </div>                
+
                 <div class="card-footer bg-white text-end px-0 pt-4 mt-2">
                     <a href="{% url 'cliente_list' %}" class="btn btn-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
+                    
+                    <button type="submit" name="action" value="save" class="btn btn-primary">
+                        Salvar
+                    </button>
+                    
+                    <button type="submit" name="action" value="save_and_reserve" class="btn btn-success">
+                        Salvar e Ir para Reserva
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </main>
+
+<div class="modal fade" id="cameraModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Capturar Foto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <video id="video" width="640" height="480" autoplay class="img-fluid"></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" id="snap" class="btn btn-primary">Capturar Foto</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 // Script para buscar endereço via API do ViaCEP
@@ -76,6 +121,7 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // CEP - Campos do formulário preenchidos automaticamente
     const cepInput = document.getElementById('cep-input');
     const logradouroInput = document.getElementById('logradouro-input');
     const bairroInput = document.getElementById('bairro-input');
@@ -116,6 +162,144 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Erro:', error);
             });
     });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Abrir camera e capturar foto
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const snapButton = document.getElementById('snap');
+    const fotoPreview = document.getElementById('foto-preview');
+    const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+
+    // O campo de input de arquivo gerado pelo Django
+    const fotoInput = document.getElementById('{{ form.foto.id_for_label }}');
+
+    // Quando o modal for aberto, inicia a câmera
+    document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error("Erro ao acessar a câmera: ", err);
+            alert("Não foi possível acessar a câmera. Verifique as permissões do seu navegador.");
+            cameraModal.hide();
+        }
+    });
+
+    // Quando o modal for fechado, para a câmera
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
+        const stream = video.srcObject;
+        if (stream) {
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+        }
+    });
+
+    // Botão de capturar a foto
+    snapButton.addEventListener('click', function () {
+        const context = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Mostra a preview da foto na página principal
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        fotoPreview.src = dataUrl;
+        fotoPreview.style.display = 'block';
+
+        // --- A MÁGICA ACONTECE AQUI ---
+        // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
+        canvas.toBlob(function(blob) {
+            const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
+
+            // Usa a API DataTransfer para adicionar o arquivo ao input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fotoInput.files = dataTransfer.files;
+
+            // Opcional: dispara um evento de 'change' se necessário
+            fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        }, 'image/jpeg');
+        
+        // Fecha o modal
+        cameraModal.hide();
+    });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Pega os elementos dos campos pelo atributo 'name' - Mascara para CPF, CEP e Telefone
+    const cpfInput = document.querySelector('input[name="cpf"]');
+    const CepInput = document.querySelector('input[name="cep"]');
+    const telefoneInput = document.querySelector('input[name="telefone"]');
+
+    // Opções da máscara para o telefone (aceita 8 ou 9 dígitos)
+    const telefoneMaskOptions = {
+        mask: [
+            { mask: '(00) 0000-0000' },
+            { mask: '(00) 00000-0000' }
+        ]
+    };
+
+    // Aplica as máscaras
+    if(cpfInput)      IMask(cpfInput,      { mask: '000.000.000-00' });
+    if(CepInput)      IMask(CepInput,      { mask: '00000-000' });
+    if(telefoneInput) IMask(telefoneInput, { mask: '(00) 00000-0000' });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cpfInput = document.querySelector('input[name="cpf"]');
+    const emailInput = document.querySelector('input[name="email"]');
+    
+    // Pega o ID do cliente da URL, se estiver na página de edição
+    const urlParts = window.location.pathname.split('/');
+    const clienteId = urlParts.includes('editar') ? urlParts[urlParts.length - 2] : '';
+
+    // Função genérica para verificar um campo
+    const checkField = (inputElement, fieldName, feedbackElementId) => {
+        const feedbackDiv = document.getElementById(feedbackElementId);
+        
+        inputElement.addEventListener('blur', function() { // 'blur' é quando o usuário sai do campo
+            const value = inputElement.value;
+            if (value.length === 0) {
+                feedbackDiv.textContent = '';
+                return;
+            }
+
+            // Monta a URL da nossa API
+            const url = `{% url 'api_verificar_duplicidade' %}?field=${fieldName}&value=${value}&cliente_id=${clienteId}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_taken) {
+                        feedbackDiv.textContent = `Este ${fieldName} já está cadastrado.`;
+                        inputElement.classList.add('is-invalid');
+                    } else {
+                        feedbackDiv.textContent = '';
+                        inputElement.classList.remove('is-invalid');
+                    }
+                });
+        });
+    };
+
+    // Aplica a função para os campos de CPF e Email
+    if (cpfInput) checkField(cpfInput, 'cpf', 'cpf-feedback');
+    if (emailInput) checkField(emailInput, 'email', 'email-feedback');
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nascimentoInput = document.getElementById('{{ form.data_nascimento.id_for_label }}');
+    const nascimentoValue = '{{ nascimento_para_js|default:"" }}';
+
+    if (nascimentoInput && nascimentoValue) {
+        nascimentoInput.value = nascimentoValue;
+    }
 });
 </script>
 {% endblock %}

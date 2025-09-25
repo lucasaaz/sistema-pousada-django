@@ -2,7 +2,7 @@
 # ARQUIVO: gestao/urls.py (ATUALIZADO)
 # DESCRIÇÃO: Adiciona os links para as novas páginas de clientes.
 # ==============================================================================
-from django.urls import path
+from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views
 from .views import (
@@ -43,7 +43,9 @@ urlpatterns = [
     path('reservas/<int:pk>/', views.ReservaDetailView.as_view(), name='reserva_detail'),
     path('reservas/editar/<int:pk>/', views.ReservaUpdateView.as_view(), name='reserva_edit'),
     path('reservas/cancelar/<int:pk>/', views.ReservaDeleteView.as_view(), name='reserva_delete'),
-    
+    path('select2/', include('django_select2.urls')),
+    path('api/buscar-clientes/', views.buscar_clientes_view, name='api_buscar_clientes'),
+ 
     # URLs para as ações de check-in e check-out
     path('reservas/checkin/<int:pk>/', views.fazer_checkin, name='fazer_checkin'),
     path('reservas/checkout/<int:pk>/', views.fazer_checkout, name='fazer_checkout'),
@@ -109,4 +111,7 @@ urlpatterns = [
     path('financeiro/categorias/adicionar/', views.CategoriaGastoCreateView.as_view(), name='categoria_gasto_add'),
     path('financeiro/categorias/<int:pk>/editar/', views.CategoriaGastoUpdateView.as_view(), name='categoria_gasto_edit'),
     path('financeiro/categorias/<int:pk>/excluir/', views.CategoriaGastoDeleteView.as_view(), name='categoria_gasto_delete'),
+
+    # URL para a API de verificação de duplicidade de CPF ou e-mail
+    path('api/verificar-duplicidade/', views.verificar_duplicidade_view, name='api_verificar_duplicidade'),
 ]

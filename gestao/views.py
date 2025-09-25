@@ -5,6 +5,7 @@
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
+from django.urls import reverse
 from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.decorators import login_required, permission_required
@@ -28,6 +29,7 @@ import json
 def dashboard_view(request):
     # Visão Geral das Reservas
     total_reservas = Reserva.objects.count()
+    pre_reservas = Reserva.objects.filter(status='pre_reserva').count()
     reservas_confirmadas = Reserva.objects.filter(status='confirmada').count()
     reservas_checkin = Reserva.objects.filter(status='checkin').count()
     reservas_checkout = Reserva.objects.filter(status='checkout').count()
@@ -50,10 +52,13 @@ def dashboard_view(request):
     
     # Listas de Reservas para exibição
     reservas_ativas_list = Reserva.objects.filter(status='checkin').order_by('data_checkout')
-    proximas_reservas = Reserva.objects.filter(data_checkin__gte=date.today()).order_by('data_checkin')
-    
+    proximas_reservas = Reserva.objects.filter(status='confirmada', data_checkin__gte=date.today()).order_by('data_checkin')
+    proximas_prereservas = Reserva.objects.filter(status='pre_reserva').order_by('data_checkin')
+    # proximas_reservas = Reserva.objects.filter(data_checkin__gte=date.today()).order_by('data_checkin')
+  
     context = {
         'total_reservas': total_reservas,
+        'pre_reservas': pre_reservas,
         'reservas_confirmadas': reservas_confirmadas,
         'reservas_checkin': reservas_checkin,
         'reservas_checkout': reservas_checkout,
@@ -67,6 +72,7 @@ def dashboard_view(request):
         'acomodacoes': acomodacoes,
         'reservas_ativas_list': reservas_ativas_list,
         'proximas_reservas': proximas_reservas,
+        'proximas_prereservas': proximas_prereservas,
     }
     return render(request, 'gestao/dashboard_completo.html', context)
 
@@ -146,14 +152,22 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
-        form = ClienteForm(request.POST)
+        form = ClienteForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
+            cliente = form.save()
+            action = request.POST.get('action')
+            
+            if action == 'save_and_reserve':
+                # Cria a URL para adicionar reserva, passando o ID do novo cliente
+                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
+                return redirect(reserva_url)
+            
+            # Ação padrão: se o botão for "save" ou se 'action' não for definido
             return redirect('cliente_list')
     else:
         form = ClienteForm()
     
-    context = {'form': form, 'is_update': False}
+    context = {'form': form}
     return render(request, 'gestao/cliente_form.html', context)
 
 # ATUALIZAR (EDITAR) um cliente existente
@@ -163,18 +177,27 @@ def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':
-        form = ClienteForm(request.POST, instance=cliente)
+        # Precisamos incluir request.FILES para lidar com o upload da foto
+        form = ClienteForm(request.POST, request.FILES, instance=cliente)
         if form.is_valid():
             form.save()
+            messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
+        if cliente.data_nascimento:
+            form.initial['data_nascimento'] = cliente.data_nascimento
     
     context = {
         'form': form,
-        'cliente': cliente,
-        'is_update': True,
+        'cliente': cliente, # Passa o objeto cliente para o template
+        'object': cliente,  # 'object' é usado pelo template para o título
     }
+
+    # Envia a data formatada para o JavaScript usar
+    if cliente.data_nascimento:
+        context['nascimento_para_js'] = cliente.data_nascimento.strftime('%Y-%m-%d')
+      
     return render(request, 'gestao/cliente_form.html', context)
 
 # EXCLUIR um cliente (com confirmação)
@@ -187,6 +210,29 @@ def cliente_delete_view(request, pk):
         return redirect('cliente_list')
     context = {'cliente': cliente}
     return render(request, 'gestao/cliente_confirm_delete.html', context)
+
+# API para verificar duplicidade de CPF ou e-mail
+@login_required
+def verificar_duplicidade_view(request):
+    # Pega os dados que o JavaScript vai enviar
+    field = request.GET.get('field')
+    value = request.GET.get('value')
+    cliente_id = request.GET.get('cliente_id') # ID do cliente sendo editado (se houver)
+
+    # Verifica se os parâmetros necessários foram enviados
+    if not field or not value:
+        return JsonResponse({'is_taken': False})
+
+    # Monta a query para buscar no banco
+    query = {f'{field}__iexact': value}
+    check = Cliente.objects.filter(**query)
+
+    # Se estivermos editando um cliente, excluímos ele mesmo da busca
+    if cliente_id:
+        check = check.exclude(pk=cliente_id)
+
+    # Se 'check.exists()' for True, significa que o valor já foi pego
+    return JsonResponse({'is_taken': check.exists()})
 
 # ==============================================================================
 # === VIEWS PARA A GESTÃO DE TIPOS DE ACOMODAÇÃO                             ===
@@ -340,7 +386,8 @@ class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
         query = self.request.GET.get('q')
         status = self.request.GET.get('status')
-        checkin_date = self.request.GET.get('checkin_date')
+        checkin_inicio = self.request.GET.get('checkin_inicio')
+        checkin_fim = self.request.GET.get('checkin_fim') 
         
         if query:
             # Filtra por nome do cliente, CPF ou número da acomodação
@@ -354,14 +401,21 @@ class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         if status:
             queryset = queryset.filter(status=status)
 
-        if checkin_date:
+        # Se a data de início for fornecida, filtra a partir dela
+        if checkin_inicio:
             try:
-                # Tenta converter a data de string para um objeto de data
-                checkin_date_obj = datetime.strptime(checkin_date, '%Y-%m-%d').date()
-                queryset = queryset.filter(data_checkin=checkin_date_obj)
-            except ValueError:
-                # Ignora se o formato da data for inválido
-                pass
+                data_inicio_obj = datetime.strptime(checkin_inicio, '%Y-%m-%d').date()
+                queryset = queryset.filter(data_checkin__gte=data_inicio_obj)
+            except (ValueError, TypeError):
+                pass # Ignora data inválida
+
+        # Se a data de fim for fornecida, filtra até ela
+        if checkin_fim:
+            try:
+                data_fim_obj = datetime.strptime(checkin_fim, '%Y-%m-%d').date()
+                queryset = queryset.filter(data_checkin__lte=data_fim_obj)
+            except (ValueError, TypeError):
+                pass # Ignora data inválida
         
         return queryset
     
@@ -369,7 +423,9 @@ class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         # Adiciona a query de busca ao contexto para manter o campo preenchido
         context['query'] = self.request.GET.get('q', '')
-        context['checkin_date'] = self.request.GET.get('checkin_date', '')
+        # Adiciona as datas para manter os campos preenchidos
+        context['checkin_inicio'] = self.request.GET.get('checkin_inicio', '')
+        context['checkin_fim'] = self.request.GET.get('checkin_fim', '')
         # Passa a ordenação atual para o template, para que saibamos qual link criar
         context['current_ordering'] = self.request.GET.get('ordering', '-data_reserva')
         # Pega as opções de status do modelo e envia para o template
@@ -378,7 +434,7 @@ class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
 class ReservaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     permission_required = 'gestao.view_reserva'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True  
 
     model = Reserva
     template_name = 'gestao/reserva_detail.html'
@@ -386,29 +442,92 @@ class ReservaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
 
 class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     permission_required = 'gestao.add_reserva'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True
 
     model = Reserva
     form_class = ReservaForm
     template_name = 'gestao/reserva_form.html'
     success_url = reverse_lazy('reserva_list')
 
-    def form_valid(self, form):
-        # Lógica adicional pode ser adicionada aqui se necessário
-        return super().form_valid(form)
+    def dispatch(self, request, *args, **kwargs):
+        """
+        O dispatch é executado antes do GET ou do POST.
+        É o lugar perfeito para preparar dados que ambos os métodos precisam.
+        """
+        cliente_id = request.GET.get('cliente_id')
+        self.cliente_pre_selecionado = None
+        if cliente_id:
+            try:
+                self.cliente_pre_selecionado = Cliente.objects.get(pk=cliente_id)
+            except Cliente.DoesNotExist:
+                pass
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        """
+        Este método continua igual, usando o cliente que o dispatch buscou.
+        """
+        initial = super().get_initial()
+        if self.cliente_pre_selecionado:
+            cliente = self.cliente_pre_selecionado
+            initial['cliente'] = cliente.pk
+            initial['cliente_busca'] = cliente.nome_completo
+        return initial
+
+    def get_context_data(self, **kwargs):
+        """
+        Este método também continua igual, usando o cliente do dispatch.
+        """
+        context = super().get_context_data(**kwargs)
+        if self.cliente_pre_selecionado and self.cliente_pre_selecionado.foto:
+            context['cliente_foto_url'] = self.cliente_pre_selecionado.foto.url
+        return context
 
 class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     permission_required = 'gestao.change_reserva'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True
 
     model = Reserva
     form_class = ReservaForm
     template_name = 'gestao/reserva_form.html'
     success_url = reverse_lazy('reserva_list')
 
+    def get_form(self, form_class=None):
+        # Primeiro, deixamos o Django criar o formulário normalmente
+        form = super().get_form(form_class)
+        
+        # 'self.object' é a instância da reserva que está sendo editada
+        reserva = self.get_object()
+        
+        # Agora, nós preenchemos os campos customizados diretamente no formulário
+        if reserva.cliente:
+            form.fields['cliente_busca'].initial = reserva.cliente.nome_completo
+            
+        # E forçamos o preenchimento das datas, que era o nosso problema
+        form.fields['data_checkin'].initial = reserva.data_checkin
+        form.fields['data_checkout'].initial = reserva.data_checkout
+            
+        return form
+
+    # ADICIONE ESTE MÉTODO PARA ENVIAR A FOTO
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        reserva = self.get_object()
+        
+        # Se a reserva tem um cliente e esse cliente tem uma foto, envia a URL
+        if reserva.cliente and reserva.cliente.foto:
+            context['cliente_foto_url'] = reserva.cliente.foto.url
+        
+        if reserva.data_checkin:
+            context['checkin_para_js'] = reserva.data_checkin.strftime('%Y-%m-%d')
+        if reserva.data_checkout:
+            context['checkout_para_js'] = reserva.data_checkout.strftime('%Y-%m-%d')
+              
+        return context
+
 class ReservaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_reserva'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True  
 
     model = Reserva
     template_name = 'gestao/reserva_confirm_delete.html'
@@ -476,6 +595,26 @@ def imprimir_contrato_checkin(request, pk):
         'acomodacao': reserva.acomodacao,
     }
     return render(request, 'gestao/contrato_checkin.html', context)
+
+def buscar_clientes_view(request):
+    # Pega o termo de busca que o JavaScript vai enviar via GET
+    term = request.GET.get('term', '')
+    
+    # Filtra os clientes cujo nome completo OU CPF contenham o termo de busca
+    # Usamos 'icontains' para busca case-insensitive (não diferencia maiúsculas/minúsculas)
+    clientes = Cliente.objects.filter(
+        Q(nome_completo__icontains=term) | Q(cpf__icontains=term)
+    )[:10]  # Limita a 10 resultados para não sobrecarregar
+
+    # Prepara os resultados no formato que o JavaScript vai usar
+    results = []
+    for cliente in clientes:
+        results.append({
+            'id': cliente.id,
+            'text': f"{cliente.nome_completo}" # Mostra nome
+        })
+
+    return JsonResponse(results, safe=False)
 
 # ==============================================================================
 # === VIEWS PARA A GESTÃO DE ITENS (UPLOAD E LISTAGEM)                       ===
@@ -686,6 +825,14 @@ def pagamento_create_view(request, reserva_pk):
             pagamento.reserva = reserva
             pagamento.save()
             messages.success(request, f"Pagamento de R$ {pagamento.valor} registado com sucesso!")
+            
+            # Se a reserva estava como pré-reserva, muda para confirmada
+            if reserva.status == 'pre_reserva':
+                reserva.status = 'confirmada'
+                reserva.save()
+                # Avisa o usuário que o status mudou
+                messages.info(request, "O status da reserva foi atualizado para 'Confirmada'.")
+            
             return redirect('reserva_detail', pk=reserva.pk)
     else:
         # Sugere o valor do saldo devedor como valor inicial do pagamento
@@ -870,7 +1017,7 @@ def relatorio_acomodacoes_view(request):
     # --- 2. Lógica para o Extrato de Pagamentos ---
 
     # Query base: todas as reservas com check-out, ordenadas pela data mais recente
-    reservas_finalizadas = Reserva.objects.filter(status='checkout').order_by('-data_checkout')
+    reservas_inicio = Reserva.objects.filter(status='checkout').order_by('-data_checkout')
 
     # Pega os parâmetros de filtro da URL
     query = request.GET.get('q')
@@ -879,23 +1026,28 @@ def relatorio_acomodacoes_view(request):
 
     # Aplica filtro de busca textual
     if query:
-        reservas_finalizadas = reservas_finalizadas.filter(
-            Q(cliente__nome_completo__icontains=query) | Q(cliente__cpf__icontains=query)
+        reservas_inicio = reservas_inicio.filter(
+            Q(cliente__nome_completo__icontains=query) | Q(cliente__cpf__icontains=query) | Q(acomodacao__numero__icontains=query)
         )
         
-    # Aplica filtro de data de início
+    # Filtro de período (check-out entre as datas)
     if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        reservas_finalizadas = reservas_finalizadas.filter(data_checkout__gte=start_date)
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            reservas_inicio = reservas_inicio.filter(data_checkin__gte=start_date)
+        except (ValueError, TypeError):
+            pass  # Ignora data inválida
         
-    # Aplica filtro de data de fim
     if end_date_str:
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        reservas_finalizadas = reservas_finalizadas.filter(data_checkout__lte=end_date)
-        
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            reservas_inicio = reservas_inicio.filter(data_checkin__lte=end_date)
+        except (ValueError, TypeError):
+            pass  # Ignora data inválida
+
     # Monta a estrutura de dados completa para o extrato
     relatorio_pagamentos = []
-    for reserva in reservas_finalizadas:
+    for reserva in reservas_inicio:
         pagamentos = reserva.pagamentos.all()
         consumos = reserva.consumos.all()
         total_pago = sum(p.valor for p in pagamentos)
@@ -906,7 +1058,7 @@ def relatorio_acomodacoes_view(request):
             'consumos': consumos,
             'total_pago': total_pago,
         })
-    
+        
     # --- 3. Lógica de Paginação ---
 
     # Pagina a lista de extratos já montada
