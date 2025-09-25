@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_select2',
     'django.contrib.humanize',
+    'storages',
     # Nosso app principal
     'gestao',
 ]
@@ -114,9 +115,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Usar WhiteNoise para servir arquivos estáticos em produção
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ==========================================================
@@ -126,3 +124,28 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard' # A 'name' da URL do seu painel principal
 
 # settings.py (nota: STATIC_ROOT já definido acima)
+
+# --- CONFIGURAÇÃO DO ARMAZENAMENTO S3 ---
+# Esta configuração só será ativada se DEBUG for False (ou seja, em produção na Render)
+if not DEBUG:
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME')
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    
+    # Define o backend de armazenamento para os arquivos de media (fotos dos clientes)
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
+        },
+    }
+
+# --- CONFIGURAÇÃO DAS URLS DE MEDIA ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
