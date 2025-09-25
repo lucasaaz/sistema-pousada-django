@@ -162,7 +162,7 @@ class PagamentoForm(forms.ModelForm):
         widgets = {
             'forma_pagamento': forms.Select(attrs={'class': 'form-select'}),
             'valor': forms.NumberInput(attrs={'class': 'form-control'}),
-            'data_pagamento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_pagamento': forms.DateInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
         }
 
 # Formulários para Forma de Pagamentos
