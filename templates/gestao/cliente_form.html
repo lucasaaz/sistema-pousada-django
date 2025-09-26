@@ -204,11 +204,6 @@ document.addEventListener('DOMContentLoaded', function () {
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Mostra a preview da foto na página principal
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        fotoPreview.src = dataUrl;
-        fotoPreview.style.display = 'block';
-
         // --- A MÁGICA ACONTECE AQUI ---
         // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
         canvas.toBlob(function(blob) {
