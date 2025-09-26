@@ -14,7 +14,10 @@ class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         # Campos que aparecerão no formulário
-        fields = ['nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado']
+        fields = [
+            'nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone',
+            'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'foto'
+        ]
         # Adiciona classes do Bootstrap para estilizar os campos
         widgets = {
             'nome_completo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome completo do cliente'}),

@@ -11,17 +11,17 @@ def upload_file_to_s3(file, filename):
         's3',
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_REGION_NAME
+        region_name=settings.AWS_S3_REGION_NAME
     )
 
     try:
         s3.upload_fileobj(
             Fileobj=file,
-            Bucket=settings.AWS_S3_BUCKET_NAME,
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
             Key=filename,
             ExtraArgs={'ACL': 'public-read'}  # deixa público
         )
-        url = f"https://{settings.AWS_S3_BUCKET_NAME}.s3.{settings.AWS_REGION_NAME}.amazonaws.com/{filename}"
+        url = f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{filename}"
         return url
     except NoCredentialsError:
         print("Credenciais inválidas")
