@@ -192,8 +192,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
         const stream = video.srcObject;
         if (stream) {
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
+            // const tracks = stream.getTracks();
+            // tracks.forEach(track => track.stop());
+            stream.getTracks().forEach(track => track.stop());
         }
     });
 
@@ -220,6 +221,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Opcional: dispara um evento de 'change' se necessário
             fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+            fotoPreview.onload = () => {
+                URL.revokeObjectURL(objectUrl); // libera memória
+                cameraModal.hide();
+            };
 
         }, 'image/jpeg');
         
