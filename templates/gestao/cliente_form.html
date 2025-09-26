@@ -14,12 +14,7 @@
     <div class="card shadow-sm">
         <div class="card-body">
             <form method="post" novalidate enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {{ form.nome_completo }}
-                    {{ form.cpf }}
-                    {{ form.email }}
-                    {{ form.telefone }}
-                    {{ form.foto }}
+                {% csrf_token %}
                 <h5 class="mb-3">Dados Pessoais</h5>
                 <div class="row g-3">
                     <div class="col-md-12">
@@ -72,7 +67,7 @@
                 {% if cliente.foto %}
                     <div class="mb-3">
                         <p class="mb-1 small text-muted">Foto atual:</p>
-                        <img src="{{ cliente.foto }}" alt="Foto de {{ cliente.nome_completo }}" class="img-thumbnail" style="max-width: 250px;">
+                        <img src="{{ cliente.foto.url }}" alt="Foto de {{ cliente.nome_completo }}" class="img-thumbnail" style="max-width: 250px;">
                     </div>
                 {% endif %}
 
@@ -203,24 +198,34 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Botão de capturar a foto
-    snapButton.addEventListener('click', function() {
+    snapButton.addEventListener('click', function () {
         const context = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Mostra a preview da foto na página principal
         const dataUrl = canvas.toDataURL('image/jpeg');
         fotoPreview.src = dataUrl;
         fotoPreview.style.display = 'block';
 
-        canvas.toBlob(function(blob){
-            const file = new File([blob], "foto_cliente.jpg", { type:"image/jpeg" });
+        // --- A MÁGICA ACONTECE AQUI ---
+        // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
+        canvas.toBlob(function(blob) {
+            const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
+
+            // Usa a API DataTransfer para adicionar o arquivo ao input
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
             fotoInput.files = dataTransfer.files;
-            fotoInput.dispatchEvent(new Event('change', { bubbles:true }));
-        }, 'image/jpeg');
 
-        bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
+            // Opcional: dispara um evento de 'change' se necessário
+            fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        }, 'image/jpeg');
+        
+        // Fecha o modal
+        cameraModal.hide();
     });
 });
 </script>
