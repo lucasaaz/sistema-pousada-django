@@ -204,7 +204,6 @@ document.addEventListener('DOMContentLoaded', function () {
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // --- A MÁGICA ACONTECE AQUI ---
         // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
         canvas.toBlob(function(blob) {
             const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
@@ -213,6 +212,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
             fotoInput.files = dataTransfer.files;
+
+            // Mostra a preview a partir do arquivo real
+            const objectUrl = URL.createObjectURL(file);
+            fotoPreview.src = objectUrl;
+            fotoPreview.style.display = 'block';
 
             // Opcional: dispara um evento de 'change' se necessário
             fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
