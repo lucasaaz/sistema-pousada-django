@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
 
     // Campo do formulário Django
-    const fotoInput = document.getElementById('{{ form.foto.id_for_label }}');
+    const fotoInput = document.getElementById('id_foto');
 
     // Inicia a câmera quando o modal abre
     document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
