@@ -166,69 +166,84 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Abrir camera e capturar foto
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const snapButton = document.getElementById('snap');
     const fotoPreview = document.getElementById('foto-preview');
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
 
-    // O campo de input de arquivo gerado pelo Django
+    // Campo do formulário Django
     const fotoInput = document.getElementById('{{ form.foto.id_for_label }}');
 
-    // Quando o modal for aberto, inicia a câmera
+    // Inicia a câmera quando o modal abre
     document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             video.srcObject = stream;
+            console.log("📷 Câmera iniciada com sucesso");
         } catch (err) {
-            console.error("Erro ao acessar a câmera: ", err);
-            alert("Não foi possível acessar a câmera. Verifique as permissões do seu navegador.");
+            console.error("❌ Erro ao acessar a câmera: ", err);
+            alert("Não foi possível acessar a câmera. Verifique as permissões do navegador.");
             cameraModal.hide();
         }
     });
 
-    // Quando o modal for fechado, para a câmera
+    // Para a câmera quando o modal fecha
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
         const stream = video.srcObject;
         if (stream) {
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
+            stream.getTracks().forEach(track => track.stop());
+            console.log("🛑 Câmera parada (modal fechado)");
         }
     });
 
-    // Botão de capturar a foto
+    // Botão para capturar a foto
     snapButton.addEventListener('click', function () {
         const context = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        console.log("📸 Foto capturada no canvas");
 
-        // Mostra a preview da foto na página principal
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        fotoPreview.src = dataUrl;
-        fotoPreview.style.display = 'block';
-
-        // --- A MÁGICA ACONTECE AQUI ---
-        // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
+        // Converte para blob (arquivo)
         canvas.toBlob(function(blob) {
-            const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
+            if (!blob) {
+                console.error("❌ Erro: blob não foi gerado");
+                return;
+            }
+            console.log("✅ Blob gerado:", blob);
 
-            // Usa a API DataTransfer para adicionar o arquivo ao input
+            const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
+            console.log("✅ File criado:", file);
+
+            // Preenche input do Django
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
             fotoInput.files = dataTransfer.files;
+            console.log("✅ File anexado ao input:", fotoInput.files);
 
-            // Opcional: dispara um evento de 'change' se necessário
+            // Preview com URL do arquivo
+            const objectUrl = URL.createObjectURL(file);
+            fotoPreview.src = objectUrl;
+            fotoPreview.style.display = 'block';
+            console.log("👀 Preview gerado:", objectUrl);
+
+            // Força evento de mudança
             fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log("🔔 Evento change disparado");
+
+            // Só fecha o modal depois que o preview foi carregado
+            fotoPreview.onload = () => {
+                console.log("🟢 Preview carregado com sucesso");
+                URL.revokeObjectURL(objectUrl); // libera memória
+                cameraModal.hide();
+            };
 
         }, 'image/jpeg');
-        
-        // Fecha o modal
-        cameraModal.hide();
     });
 });
 </script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Pega os elementos dos campos pelo atributo 'name' - Mascara para CPF, CEP e Telefone
