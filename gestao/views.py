@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.urls import reverse
 from django.http import JsonResponse
+from .utils import upload_file_to_s3
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.decorators import login_required, permission_required
 from django.utils import timezone
@@ -154,21 +155,27 @@ def cliente_create_view(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST, request.FILES)
         if form.is_valid():
-            cliente = form.save()
+            cliente = form.save(commit=False)
+
+            # Se enviou uma foto via input, envia para o S3
+            if 'foto' in request.FILES:
+                file = request.FILES['foto']
+                filename = f"clientes/{cliente.nome_completo}_{file.name}"
+                url = upload_file_to_s3(file, filename)
+                if url:
+                    cliente.foto = url  # Substitui o campo ImageField pelo link S3
+
+            cliente.save()
+
             action = request.POST.get('action')
-            
             if action == 'save_and_reserve':
-                # Cria a URL para adicionar reserva, passando o ID do novo cliente
                 reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
                 return redirect(reserva_url)
-            
-            # Ação padrão: se o botão for "save" ou se 'action' não for definido
+
             return redirect('cliente_list')
     else:
         form = ClienteForm()
-    
-    context = {'form': form}
-    return render(request, 'gestao/cliente_form.html', context)
+    return render(request, 'gestao/cliente_form.html', {'form': form})
 
 # ATUALIZAR (EDITAR) um cliente existente
 @login_required
@@ -177,27 +184,32 @@ def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':
-        # Precisamos incluir request.FILES para lidar com o upload da foto
         form = ClienteForm(request.POST, request.FILES, instance=cliente)
         if form.is_valid():
-            form.save()
+            cliente = form.save(commit=False)
+
+            # Atualiza a foto no S3 se o usuário capturou uma nova
+            if 'foto' in request.FILES:
+                file = request.FILES['foto']
+                filename = f"clientes/{cliente.nome_completo}_{file.name}"
+                url = upload_file_to_s3(file, filename)
+                if url:
+                    cliente.foto = url  # Salva a URL S3 no banco
+
+            cliente.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
         if cliente.data_nascimento:
             form.initial['data_nascimento'] = cliente.data_nascimento
-    
+
     context = {
         'form': form,
-        'cliente': cliente, # Passa o objeto cliente para o template
-        'object': cliente,  # 'object' é usado pelo template para o título
+        'cliente': cliente,
+        'object': cliente,
+        'nascimento_para_js': cliente.data_nascimento.strftime('%Y-%m-%d') if cliente.data_nascimento else ''
     }
-
-    # Envia a data formatada para o JavaScript usar
-    if cliente.data_nascimento:
-        context['nascimento_para_js'] = cliente.data_nascimento.strftime('%Y-%m-%d')
-      
     return render(request, 'gestao/cliente_form.html', context)
 
 # EXCLUIR um cliente (com confirmação)
