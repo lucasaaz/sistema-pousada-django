@@ -156,22 +156,37 @@ def cliente_create_view(request):
         form = ClienteForm(request.POST, request.FILES)
         if form.is_valid():
             cliente = form.save(commit=False)
-
-            # Se enviou uma foto via input, envia para o S3
-            if 'foto' in request.FILES:
-                file = request.FILES['foto']
-                filename = f"clientes/{cliente.nome_completo}_{file.name}"
-                url = upload_file_to_s3(file, filename)
-                if url:
-                    cliente.foto = url  # Substitui o campo ImageField pelo link S3
-
+            # salva primeiro para garantir PK (necessário para a key no S3)
             cliente.save()
+            if hasattr(form, 'save_m2m'):
+                form.save_m2m()
+
+            foto = request.FILES.get('foto')
+            if foto:
+                from django.utils.text import slugify
+                import os
+                name, ext = os.path.splitext(foto.name)
+                safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
+                key = f"clientes/{cliente.pk}/{safe_name}"
+                try:
+                    url = upload_file_to_s3(foto, key, acl='public-read', content_type=getattr(foto, 'content_type', None))
+                except Exception as e:
+                    messages.error(request, f"Erro ao enviar a foto: {e}")
+                else:
+                    # Ajuste conforme seu model: se campo for CharField use foto_url,
+                    # se for ImageField com django-storages prefira cliente.foto.save(...)
+                    if hasattr(cliente, 'foto_url'):
+                        cliente.foto_url = url
+                    else:
+                        cliente.foto = url
+                    cliente.save()
 
             action = request.POST.get('action')
             if action == 'save_and_reserve':
                 reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
                 return redirect(reserva_url)
 
+            messages.success(request, 'Cliente criado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm()
@@ -188,13 +203,27 @@ def cliente_update_view(request, pk):
         if form.is_valid():
             cliente = form.save(commit=False)
 
-            # Atualiza a foto no S3 se o usuário capturou uma nova
-            if 'foto' in request.FILES:
-                file = request.FILES['foto']
-                filename = f"clientes/{cliente.nome_completo}_{file.name}"
-                url = upload_file_to_s3(file, filename)
-                if url:
-                    cliente.foto = url  # Salva a URL S3 no banco
+            # Se enviou uma nova foto, faz upload para S3
+            foto_file = request.FILES.get('foto')
+            if foto_file:
+                # garante que a instância tem PK para construir a key
+                if not cliente.pk:
+                    cliente.save()
+
+                # nome seguro para o arquivo (preserva extensão)
+                from django.utils.text import slugify
+                import os
+                name, ext = os.path.splitext(foto_file.name)
+                safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
+                filename = f"clientes/{cliente.pk}/{safe_name}"
+
+                try:
+                    url = upload_file_to_s3(foto_file, filename, content_type=getattr(foto_file, 'content_type', None))
+                except Exception as e:
+                    messages.error(request, f"Erro ao enviar a foto: {e}")
+                else:
+                    # grava a URL retornada no campo (ajuste se o campo for ImageField/Storage)
+                    cliente.foto = url
 
             cliente.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
@@ -492,7 +521,8 @@ class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
         """
         context = super().get_context_data(**kwargs)
         if self.cliente_pre_selecionado and self.cliente_pre_selecionado.foto:
-            context['cliente_foto_url'] = self.cliente_pre_selecionado.foto.url
+            # cliente.foto é um URLField (string) - não usar .url
+            context['cliente_foto_url'] = self.cliente_pre_selecionado.foto
         return context
 
 class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
@@ -528,7 +558,8 @@ class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         
         # Se a reserva tem um cliente e esse cliente tem uma foto, envia a URL
         if reserva.cliente and reserva.cliente.foto:
-            context['cliente_foto_url'] = reserva.cliente.foto.url
+            # cliente.foto é um URLField (string) - não usar .url
+            context['cliente_foto_url'] = reserva.cliente.foto
         
         if reserva.data_checkin:
             context['checkin_para_js'] = reserva.data_checkin.strftime('%Y-%m-%d')
