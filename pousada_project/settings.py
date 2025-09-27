@@ -13,7 +13,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Use variáveis de ambiente para a SECRET_KEY e o DEBUG
 SECRET_KEY = os.environ.get('SECRET_KEY')
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = False
 
 # ALLOWED_HOSTS pode ser configurado via variável de ambiente com valores separados por vírgula
 ALLOWED_HOSTS = []
