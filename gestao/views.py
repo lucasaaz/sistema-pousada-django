@@ -19,6 +19,10 @@ from django.core.paginator import Paginator
 from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, TruncMonth
 from django.contrib.auth.models import User
 from django.contrib import messages
+import logging
+
+# logger for this module
+logger = logging.getLogger(__name__)
 from .models import Reserva, Acomodacao, Cliente, TipoAcomodacao, ItemEstoque, Frigobar, ItemFrigobar, FormaPagamento, Consumo, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto
 from .forms import *
 import json
@@ -163,14 +167,23 @@ def cliente_create_view(request):
 
             foto = request.FILES.get('foto')
             if foto:
+                # Log incoming file details for debugging on Render
+                try:
+                    size = foto.size
+                except Exception:
+                    size = 'unknown'
+                logger.info("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None), size)
                 from django.utils.text import slugify
                 import os
                 name, ext = os.path.splitext(foto.name)
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 key = f"clientes/{cliente.pk}/{safe_name}"
+                logger.info("Attempting S3 upload for new cliente: key=%s content_type=%s", key, getattr(foto, 'content_type', None))
                 try:
                     url = upload_file_to_s3(foto, key, acl='public-read', content_type=getattr(foto, 'content_type', None))
                 except Exception as e:
+                    # Log full exception to server logs so we can inspect on Render
+                    logger.exception("Erro ao enviar a foto para S3 (create): %s", e)
                     messages.error(request, f"Erro ao enviar a foto: {e}")
                 else:
                     # Ajuste conforme seu model: se campo for CharField use foto_url,
@@ -180,6 +193,7 @@ def cliente_create_view(request):
                     else:
                         cliente.foto = url
                     cliente.save()
+                    logger.info("S3 upload succeeded for new cliente: url=%s", url)
 
             action = request.POST.get('action')
             if action == 'save_and_reserve':
@@ -206,6 +220,11 @@ def cliente_update_view(request, pk):
             # Se enviou uma nova foto, faz upload para S3
             foto_file = request.FILES.get('foto')
             if foto_file:
+                try:
+                    size = foto_file.size
+                except Exception:
+                    size = 'unknown'
+                logger.info("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)
                 # garante que a instância tem PK para construir a key
                 if not cliente.pk:
                     cliente.save()
@@ -217,13 +236,16 @@ def cliente_update_view(request, pk):
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 filename = f"clientes/{cliente.pk}/{safe_name}"
 
+                logger.info("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, getattr(foto_file, 'content_type', None))
                 try:
                     url = upload_file_to_s3(foto_file, filename, content_type=getattr(foto_file, 'content_type', None))
                 except Exception as e:
+                    logger.exception("Erro ao enviar a foto para S3 (update) for cliente pk=%s: %s", cliente.pk, e)
                     messages.error(request, f"Erro ao enviar a foto: {e}")
                 else:
                     # grava a URL retornada no campo (ajuste se o campo for ImageField/Storage)
                     cliente.foto = url
+                    logger.info("S3 upload succeeded for existing cliente pk=%s: url=%s", cliente.pk, url)
 
             cliente.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
