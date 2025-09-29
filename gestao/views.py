@@ -19,6 +19,8 @@ from django.core.paginator import Paginator
 from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, TruncMonth
 from django.contrib.auth.models import User
 from django.contrib import messages
+import io
+import base64
 import logging
 
 # logger for this module
@@ -166,38 +168,59 @@ def cliente_create_view(request):
                 form.save_m2m()
 
             foto = request.FILES.get('foto')
-            if not foto:
-                logger.warning("No uploaded file found in request.FILES for new cliente")
+            foto_dataurl = request.POST.get('foto_dataurl')
+            if not foto and not foto_dataurl:
+                logger.warning("No uploaded file found in request.FILES for new cliente and no foto_dataurl provided")
             else:
                 # Log incoming file details for debugging on Render
-                try:
-                    size = foto.size
-                except Exception:
-                    size = 'unknown'
-                logger.warning("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None), size)
+                # Prefer file object if present, otherwise decode data URL
+                file_obj = foto
+                content_type = None
+                filename_for_upload = None
 
-                # Build a safe filename and upload to S3
-                from django.utils.text import slugify
-                import os
-                name, ext = os.path.splitext(getattr(foto, 'name', 'foto'))
-                safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
-                key = f"clientes/{cliente.pk}/{safe_name}"
-                logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, getattr(foto, 'content_type', None))
-                try:
-                    url = upload_file_to_s3(foto, key, acl='public-read', content_type=getattr(foto, 'content_type', None))
-                except Exception as e:
-                    # Log full exception to server logs so we can inspect on Render
-                    logger.exception("Erro ao enviar a foto para S3 (create): %s", e)
-                    messages.error(request, f"Erro ao enviar a foto: {e}")
-                else:
-                    # Ajuste conforme seu model: se campo for CharField use foto_url,
-                    # se for ImageField com django-storages prefira cliente.foto.save(...)
-                    if hasattr(cliente, 'foto_url'):
-                        cliente.foto_url = url
+                if not file_obj and foto_dataurl:
+                    # foto_dataurl format: data:<mime>;base64,<base64data>
+                    try:
+                        header, b64 = foto_dataurl.split(',', 1)
+                        content_type = header.split(':')[1].split(';')[0]
+                        decoded = base64.b64decode(b64)
+                        file_obj = io.BytesIO(decoded)
+                        file_obj.seek(0)
+                        filename_for_upload = 'foto_cliente.jpg'
+                        logger.warning('Decoded foto_dataurl for upload: content_type=%s size=%s', content_type, len(decoded))
+                    except Exception as e:
+                        logger.exception('Failed to decode foto_dataurl: %s', e)
+                        file_obj = None
+
+                if file_obj:
+                    try:
+                        size = getattr(file_obj, 'size', 'unknown')
+                    except Exception:
+                        size = 'unknown'
+                    logger.warning("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None) or filename_for_upload, size)
+
+                    # Build a safe filename and upload to S3
+                    from django.utils.text import slugify
+                    import os
+                    name, ext = os.path.splitext(getattr(foto, 'name', filename_for_upload or 'foto'))
+                    safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
+                    key = f"clientes/{cliente.pk}/{safe_name}"
+                    logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, content_type or getattr(foto, 'content_type', None))
+                    try:
+                        url = upload_file_to_s3(file_obj, key, acl='public-read', content_type=content_type or getattr(foto, 'content_type', None))
+                    except Exception as e:
+                        # Log full exception to server logs so we can inspect on Render
+                        logger.exception("Erro ao enviar a foto para S3 (create): %s", e)
+                        messages.error(request, f"Erro ao enviar a foto: {e}")
                     else:
-                        cliente.foto = url
-                    cliente.save()
-                    logger.info("S3 upload succeeded for new cliente: url=%s", url)
+                        # Ajuste conforme seu model: se campo for CharField use foto_url,
+                        # se for ImageField com django-storages prefira cliente.foto.save(...)
+                        if hasattr(cliente, 'foto_url'):
+                            cliente.foto_url = url
+                        else:
+                            cliente.foto = url
+                        cliente.save()
+                        logger.info("S3 upload succeeded for new cliente: url=%s", url)
 
             action = request.POST.get('action')
             if action == 'save_and_reserve':
@@ -223,11 +246,28 @@ def cliente_update_view(request, pk):
 
             # Se enviou uma nova foto, faz upload para S3
             foto_file = request.FILES.get('foto')
+            foto_dataurl = request.POST.get('foto_dataurl')
             if not foto_file:
-                logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s", cliente.pk)
+                if not foto_dataurl:
+                    logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s and no foto_dataurl provided", cliente.pk)
+                
+            # if file is missing but dataurl is present, decode and set foto_file to BytesIO
+            if not foto_file and foto_dataurl:
+                try:
+                    header, b64 = foto_dataurl.split(',', 1)
+                    content_type = header.split(':')[1].split(';')[0]
+                    decoded = base64.b64decode(b64)
+                    foto_file = io.BytesIO(decoded)
+                    foto_file.seek(0)
+                    # emulate a filename
+                    foto_file.name = 'foto_cliente.jpg'
+                    logger.warning('Decoded foto_dataurl for existing cliente pk=%s: content_type=%s size=%s', cliente.pk, content_type, len(decoded))
+                except Exception as e:
+                    logger.exception('Failed to decode foto_dataurl for existing cliente pk=%s: %s', cliente.pk, e)
+                    foto_file = None
             else:
                 try:
-                    size = foto_file.size
+                    size = getattr(foto_file, 'size', 'unknown')
                 except Exception:
                     size = 'unknown'
                 logger.warning("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)

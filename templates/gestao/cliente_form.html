@@ -72,6 +72,8 @@
                 {% endif %}
 
                 {{ form.foto }}
+                <!-- Fallback: se o browser não anexar o arquivo ao input, enviaremos a dataURL aqui -->
+                <input type="hidden" id="foto-dataurl" name="foto_dataurl" value="">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#cameraModal">
                     <i class="bi bi-camera-fill me-1"></i> 
                     {% if cliente.foto %}Alterar Foto{% else %}Abrir Câmera{% endif %}
@@ -204,10 +206,13 @@ document.addEventListener('DOMContentLoaded', function () {
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Mostra a preview da foto na página principal
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        fotoPreview.src = dataUrl;
-        fotoPreview.style.display = 'block';
+    // Mostra a preview da foto na página principal
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    fotoPreview.src = dataUrl;
+    fotoPreview.style.display = 'block';
+    // Guarda a dataURL no hidden input como fallback
+    const fotoDataUrlInput = document.getElementById('foto-dataurl');
+    if (fotoDataUrlInput) fotoDataUrlInput.value = dataUrl;
 
         // --- A MÁGICA ACONTECE AQUI ---
         // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
@@ -218,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
 
-            if (!fotoInput) {
+                if (!fotoInput) {
                 console.error('foto-input element not found. Cannot attach captured file.');
             } else {
                 console.log('foto-input found. files before attach:', fotoInput.files.length);
@@ -227,9 +232,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (fotoInput.files && fotoInput.files.length > 0) {
                     const f = fotoInput.files[0];
                     console.log('Attached captured file to foto-input:', f.name, f.type, f.size);
-                } else {
-                    console.warn('After assignment, foto-input.files is empty');
-                }
+                    } else {
+                        console.warn('After assignment, foto-input.files is empty');
+                    }
 
                 // Opcional: dispara um evento de 'change' se necessário
                 fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
