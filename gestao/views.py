@@ -172,13 +172,15 @@ def cliente_create_view(request):
                     size = foto.size
                 except Exception:
                     size = 'unknown'
-                logger.info("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None), size)
+                logger.warning("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None), size)
+            else:
+                logger.warning("No uploaded file found in request.FILES for new cliente")
                 from django.utils.text import slugify
                 import os
                 name, ext = os.path.splitext(foto.name)
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 key = f"clientes/{cliente.pk}/{safe_name}"
-                logger.info("Attempting S3 upload for new cliente: key=%s content_type=%s", key, getattr(foto, 'content_type', None))
+                logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, getattr(foto, 'content_type', None))
                 try:
                     url = upload_file_to_s3(foto, key, acl='public-read', content_type=getattr(foto, 'content_type', None))
                 except Exception as e:
@@ -224,7 +226,9 @@ def cliente_update_view(request, pk):
                     size = foto_file.size
                 except Exception:
                     size = 'unknown'
-                logger.info("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)
+                logger.warning("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)
+            else:
+                logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s", cliente.pk)
                 # garante que a instância tem PK para construir a key
                 if not cliente.pk:
                     cliente.save()
@@ -236,7 +240,7 @@ def cliente_update_view(request, pk):
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 filename = f"clientes/{cliente.pk}/{safe_name}"
 
-                logger.info("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, getattr(foto_file, 'content_type', None))
+                logger.warning("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, getattr(foto_file, 'content_type', None))
                 try:
                     url = upload_file_to_s3(foto_file, filename, content_type=getattr(foto_file, 'content_type', None))
                 except Exception as e:
