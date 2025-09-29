@@ -217,10 +217,23 @@ document.addEventListener('DOMContentLoaded', function () {
             // Usa a API DataTransfer para adicionar o arquivo ao input
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
-            fotoInput.files = dataTransfer.files;
 
-            // Opcional: dispara um evento de 'change' se necessário
-            fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+            if (!fotoInput) {
+                console.error('foto-input element not found. Cannot attach captured file.');
+            } else {
+                console.log('foto-input found. files before attach:', fotoInput.files.length);
+                fotoInput.files = dataTransfer.files;
+                // Log attached file details so we can see it in Console/DevTools
+                if (fotoInput.files && fotoInput.files.length > 0) {
+                    const f = fotoInput.files[0];
+                    console.log('Attached captured file to foto-input:', f.name, f.type, f.size);
+                } else {
+                    console.warn('After assignment, foto-input.files is empty');
+                }
+
+                // Opcional: dispara um evento de 'change' se necessário
+                fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
 
         }, 'image/jpeg');
         
