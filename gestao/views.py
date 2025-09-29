@@ -166,18 +166,20 @@ def cliente_create_view(request):
                 form.save_m2m()
 
             foto = request.FILES.get('foto')
-            if foto:
+            if not foto:
+                logger.warning("No uploaded file found in request.FILES for new cliente")
+            else:
                 # Log incoming file details for debugging on Render
                 try:
                     size = foto.size
                 except Exception:
                     size = 'unknown'
                 logger.warning("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None), size)
-            else:
-                logger.warning("No uploaded file found in request.FILES for new cliente")
+
+                # Build a safe filename and upload to S3
                 from django.utils.text import slugify
                 import os
-                name, ext = os.path.splitext(foto.name)
+                name, ext = os.path.splitext(getattr(foto, 'name', 'foto'))
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 key = f"clientes/{cliente.pk}/{safe_name}"
                 logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, getattr(foto, 'content_type', None))
@@ -221,14 +223,15 @@ def cliente_update_view(request, pk):
 
             # Se enviou uma nova foto, faz upload para S3
             foto_file = request.FILES.get('foto')
-            if foto_file:
+            if not foto_file:
+                logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s", cliente.pk)
+            else:
                 try:
                     size = foto_file.size
                 except Exception:
                     size = 'unknown'
                 logger.warning("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)
-            else:
-                logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s", cliente.pk)
+
                 # garante que a instância tem PK para construir a key
                 if not cliente.pk:
                     cliente.save()
@@ -236,7 +239,7 @@ def cliente_update_view(request, pk):
                 # nome seguro para o arquivo (preserva extensão)
                 from django.utils.text import slugify
                 import os
-                name, ext = os.path.splitext(foto_file.name)
+                name, ext = os.path.splitext(getattr(foto_file, 'name', 'foto'))
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 filename = f"clientes/{cliente.pk}/{safe_name}"
 

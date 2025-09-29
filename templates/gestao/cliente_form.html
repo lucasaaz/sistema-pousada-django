@@ -91,31 +91,12 @@
                         Salvar e Ir para Reserva
                     </button>
                 </div>
-
-                <div class="modal fade" id="cameraModal" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Capturar Foto</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body text-center">
-                                <video id="video" width="640" height="480" autoplay class="img-fluid"></video>
-                                <canvas id="canvas" style="display:none;"></canvas>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                                <button type="button" id="snap" class="btn btn-primary">Capturar Foto</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </form>
         </div>
     </div>
 </main>
 
-<!-- <div class="modal fade" id="cameraModal" tabindex="-1">
+<div class="modal fade" id="cameraModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -132,7 +113,7 @@
             </div>
         </div>
     </div>
-</div> -->
+</div>
 {% endblock %}
 
 // Script para buscar endereço via API do ViaCEP
@@ -192,8 +173,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const fotoPreview = document.getElementById('foto-preview');
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
 
-    // O campo de input de arquivo gerado pelo Django
-    const fotoInput = document.getElementById('{{ form.foto.id_for_label }}');
+    // O campo de input de arquivo (id estável definido no form)
+    const fotoInput = document.getElementById('foto-input');
 
     // Quando o modal for aberto, inicia a câmera
     document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {

@@ -32,7 +32,7 @@ class ClienteForm(forms.ModelForm):
             'bairro': forms.TextInput(attrs={'class': 'form-control', 'id': 'bairro-input'}),
             'cidade': forms.TextInput(attrs={'class': 'form-control', 'id': 'cidade-input'}),
             'estado': forms.TextInput(attrs={'class': 'form-control', 'id': 'estado-input'}),
-            'foto': forms.FileInput(attrs={'class': 'd-none'}),            
+            'foto': forms.FileInput(attrs={'class': 'd-none', 'id': 'foto-input', 'accept': 'image/*'}),            
         }
 
 # Formulario para Tipos de Acomodação
