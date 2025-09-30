@@ -244,14 +244,12 @@ def cliente_update_view(request, pk):
         if form.is_valid():
             cliente = form.save(commit=False)
 
-            # Se enviou uma nova foto, faz upload para S3
+            # Se enviou uma nova foto (arquivo ou dataURL), prepara para upload
             foto_file = request.FILES.get('foto')
             foto_dataurl = request.POST.get('foto_dataurl')
-            if not foto_file:
-                if not foto_dataurl:
-                    logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s and no foto_dataurl provided", cliente.pk)
-                
-            # if file is missing but dataurl is present, decode and set foto_file to BytesIO
+            content_type = None
+
+            # Se o arquivo não veio como multipart mas veio como dataURL, decodifica
             if not foto_file and foto_dataurl:
                 try:
                     header, b64 = foto_dataurl.split(',', 1)
@@ -259,13 +257,15 @@ def cliente_update_view(request, pk):
                     decoded = base64.b64decode(b64)
                     foto_file = io.BytesIO(decoded)
                     foto_file.seek(0)
-                    # emulate a filename
+                    # Emula um nome para compatibilidade com a lógica de filename
                     foto_file.name = 'foto_cliente.jpg'
                     logger.warning('Decoded foto_dataurl for existing cliente pk=%s: content_type=%s size=%s', cliente.pk, content_type, len(decoded))
                 except Exception as e:
                     logger.exception('Failed to decode foto_dataurl for existing cliente pk=%s: %s', cliente.pk, e)
                     foto_file = None
-            else:
+
+            # Se agora temos um arquivo (seja enviado diretamente ou decodificado), faz upload
+            if foto_file:
                 try:
                     size = getattr(foto_file, 'size', 'unknown')
                 except Exception:
@@ -283,9 +283,9 @@ def cliente_update_view(request, pk):
                 safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
                 filename = f"clientes/{cliente.pk}/{safe_name}"
 
-                logger.warning("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, getattr(foto_file, 'content_type', None))
+                logger.warning("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, content_type or getattr(foto_file, 'content_type', None))
                 try:
-                    url = upload_file_to_s3(foto_file, filename, content_type=getattr(foto_file, 'content_type', None))
+                    url = upload_file_to_s3(foto_file, filename, acl='public-read', content_type=content_type or getattr(foto_file, 'content_type', None))
                 except Exception as e:
                     logger.exception("Erro ao enviar a foto para S3 (update) for cliente pk=%s: %s", cliente.pk, e)
                     messages.error(request, f"Erro ao enviar a foto: {e}")
@@ -293,6 +293,8 @@ def cliente_update_view(request, pk):
                     # grava a URL retornada no campo (ajuste se o campo for ImageField/Storage)
                     cliente.foto = url
                     logger.info("S3 upload succeeded for existing cliente pk=%s: url=%s", cliente.pk, url)
+            else:
+                logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s and no foto_dataurl provided", cliente.pk)
 
             cliente.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
