@@ -165,6 +165,12 @@ def cliente_create_view(request):
         form = ClienteForm(request.POST, request.FILES)
         if form.is_valid():
             cliente = form.save(commit=False)
+            # Se o formulário trouxe a dataURL (um string muito longa),
+            # não queremos gravá-la diretamente no campo `foto` (URLField)
+            # antes do upload — isso pode exceder o max_length e causar erro.
+            if request.POST.get('foto_dataurl'):
+                cliente.foto = None
+
             # salva primeiro para garantir PK (necessário para a key no S3)
             cliente.save()
             if hasattr(form, 'save_m2m'):
