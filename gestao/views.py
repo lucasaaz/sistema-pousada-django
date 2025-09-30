@@ -7,7 +7,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.urls import reverse
 from django.http import JsonResponse
-from .utils import upload_file_to_s3
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.decorators import login_required, permission_required
 from django.utils import timezone
@@ -162,105 +161,21 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
+        # O ModelForm já sabe lidar com request.FILES e o ImageField
         form = ClienteForm(request.POST, request.FILES)
         if form.is_valid():
-            cliente = form.save(commit=False)
-            # Se o formulário trouxe a dataURL (um string muito longa),
-            # não queremos gravá-la diretamente no campo `foto` (URLField)
-            # antes do upload — isso pode exceder o max_length e causar erro.
-            if request.POST.get('foto_dataurl'):
-                cliente.foto = None
-
-            # salva primeiro para garantir PK (necessário para a key no S3)
-            cliente.save()
-            if hasattr(form, 'save_m2m'):
-                form.save_m2m()
-
-            foto = request.FILES.get('foto')
-            foto_dataurl = request.POST.get('foto_dataurl')
-            if not foto and not foto_dataurl:
-                logger.warning("No uploaded file found in request.FILES for new cliente and no foto_dataurl provided")
-            else:
-                # Log incoming file details for debugging on Render
-                # Prefer file object if present, otherwise decode data URL
-                file_obj = foto
-                content_type = None
-                filename_for_upload = None
-
-                if not file_obj and foto_dataurl:
-                    # foto_dataurl format: data:<mime>;base64,<base64data>
-                    try:
-                        header, b64 = foto_dataurl.split(',', 1)
-                        content_type = header.split(':')[1].split(';')[0]
-                        decoded = base64.b64decode(b64)
-                        file_obj = io.BytesIO(decoded)
-                        file_obj.seek(0)
-                        filename_for_upload = 'foto_cliente.jpg'
-                        logger.warning('Decoded foto_dataurl for upload: content_type=%s size=%s', content_type, len(decoded))
-                    except Exception as e:
-                        logger.exception('Failed to decode foto_dataurl: %s', e)
-                        file_obj = None
-
-                if file_obj:
-                    # determine size in bytes (works for BytesIO and UploadedFile)
-                    try:
-                        if hasattr(file_obj, 'getbuffer'):
-                            size = file_obj.getbuffer().nbytes
-                        else:
-                            size = getattr(file_obj, 'size', None) or 'unknown'
-                    except Exception:
-                        size = 'unknown'
-
-                    logger.warning("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None) or filename_for_upload, size)
-
-                    # Basic validation: only image/* MIME types and reasonable size (e.g. 2MB)
-                    MAX_BYTES = 2 * 1024 * 1024  # 2 MB
-                    if content_type and not str(content_type).startswith('image/'):
-                        logger.warning('Rejected upload: content_type not image: %s', content_type)
-                        messages.error(request, 'Formato de arquivo inválido. Envie uma imagem (jpg/png).')
-                        file_obj = None
-                    elif isinstance(size, int) and size != 'unknown' and size > MAX_BYTES:
-                        logger.warning('Rejected upload: file too large (%s bytes) for cliente %s', size, cliente.pk)
-                        messages.error(request, 'A imagem é muito grande. Envie uma imagem menor que 2MB.')
-                        file_obj = None
-
-                    # Build a safe filename and upload to S3 (only if still valid)
-                    from django.utils.text import slugify
-                    import os
-                    name, ext = os.path.splitext(getattr(foto, 'name', filename_for_upload or 'foto'))
-                    safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
-                    key = f"clientes/{cliente.pk}/{safe_name}"
-                    logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, content_type or getattr(foto, 'content_type', None))
-                    try:
-                        url = upload_file_to_s3(file_obj, key, acl='public-read', content_type=content_type or getattr(foto, 'content_type', None))
-                    except Exception as e:
-                        # Log full exception to server logs so we can inspect on Render
-                        logger.exception("Erro ao enviar a foto para S3 (create): %s", e)
-                        messages.error(request, f"Erro ao enviar a foto: {e}")
-                    else:
-                        # Ajuste conforme seu model: se campo for CharField use foto_url,
-                        # se for ImageField com django-storages prefira cliente.foto.save(...)
-                        if hasattr(cliente, 'foto_url'):
-                            cliente.foto_url = url
-                        else:
-                            cliente.foto = url
-                        try:
-                            cliente.save()
-                        except Exception as e:
-                            logger.exception('Failed to save cliente after S3 upload (create): %s', e)
-                            messages.error(request, f'Erro ao salvar cliente: {e}')
-                        else:
-                            logger.info("S3 upload succeeded for new cliente: url=%s", url)
-
+            cliente = form.save() # Apenas isso. O upload para o S3 acontece aqui!
+            
+            messages.success(request, 'Cliente criado com sucesso!')
+            
             action = request.POST.get('action')
             if action == 'save_and_reserve':
                 reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
                 return redirect(reserva_url)
-
-            messages.success(request, 'Cliente criado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm()
+        
     return render(request, 'gestao/cliente_form.html', {'form': form})
 
 # ATUALIZAR (EDITAR) um cliente existente
@@ -272,91 +187,11 @@ def cliente_update_view(request, pk):
     if request.method == 'POST':
         form = ClienteForm(request.POST, request.FILES, instance=cliente)
         if form.is_valid():
-            cliente = form.save(commit=False)
-
-            # Se enviou uma nova foto (arquivo ou dataURL), prepara para upload
-            foto_file = request.FILES.get('foto')
-            foto_dataurl = request.POST.get('foto_dataurl')
-            content_type = None
-
-            # Se o arquivo não veio como multipart mas veio como dataURL, decodifica
-            if not foto_file and foto_dataurl:
-                try:
-                    header, b64 = foto_dataurl.split(',', 1)
-                    content_type = header.split(':')[1].split(';')[0]
-                    decoded = base64.b64decode(b64)
-                    foto_file = io.BytesIO(decoded)
-                    foto_file.seek(0)
-                    # Emula um nome para compatibilidade com a lógica de filename
-                    foto_file.name = 'foto_cliente.jpg'
-                    logger.warning('Decoded foto_dataurl for existing cliente pk=%s: content_type=%s size=%s', cliente.pk, content_type, len(decoded))
-                except Exception as e:
-                    logger.exception('Failed to decode foto_dataurl for existing cliente pk=%s: %s', cliente.pk, e)
-                    foto_file = None
-
-            # Se agora temos um arquivo (seja enviado diretamente ou decodificado), faz upload
-            if foto_file:
-                try:
-                    if hasattr(foto_file, 'getbuffer'):
-                        size = foto_file.getbuffer().nbytes
-                    else:
-                        size = getattr(foto_file, 'size', None) or 'unknown'
-                except Exception:
-                    size = 'unknown'
-                logger.warning("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)
-
-                # Basic validation: only image/* MIME types and reasonable size (2MB)
-                MAX_BYTES = 2 * 1024 * 1024
-                if content_type and not str(content_type).startswith('image/'):
-                    logger.warning('Rejected upload for cliente pk=%s: content_type not image: %s', cliente.pk, content_type)
-                    messages.error(request, 'Formato de arquivo inválido. Envie uma imagem (jpg/png).')
-                    foto_file = None
-                elif isinstance(size, int) and size != 'unknown' and size > MAX_BYTES:
-                    logger.warning('Rejected upload for cliente pk=%s: file too large (%s bytes)', cliente.pk, size)
-                    messages.error(request, 'A imagem é muito grande. Envie uma imagem menor que 2MB.')
-                    foto_file = None
-
-                # garante que a instância tem PK para construir a key
-                if foto_file and not cliente.pk:
-                    cliente.save()
-
-                # nome seguro para o arquivo (preserva extensão)
-                if foto_file:
-                    from django.utils.text import slugify
-                    import os
-                    name, ext = os.path.splitext(getattr(foto_file, 'name', 'foto'))
-                    safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
-                    filename = f"clientes/{cliente.pk}/{safe_name}"
-
-                    logger.warning("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, content_type or getattr(foto_file, 'content_type', None))
-                try:
-                    url = upload_file_to_s3(foto_file, filename, acl='public-read', content_type=content_type or getattr(foto_file, 'content_type', None))
-                except Exception as e:
-                    logger.exception("Erro ao enviar a foto para S3 (update) for cliente pk=%s: %s", cliente.pk, e)
-                    messages.error(request, f"Erro ao enviar a foto: {e}")
-                else:
-                    # grava a URL retornada no campo (ajuste se o campo for ImageField/Storage)
-                    cliente.foto = url
-                    logger.info("S3 upload succeeded for existing cliente pk=%s: url=%s", cliente.pk, url)
-            else:
-                logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s and no foto_dataurl provided", cliente.pk)
-
-            try:
-                cliente.save()
-            except Exception as e:
-                logger.exception('Failed to save cliente after processing upload (update) pk=%s: %s', cliente.pk, e)
-                messages.error(request, f'Erro ao salvar cliente: {e}')
-            action = request.POST.get('action')
-            if action == 'save_and_reserve':
-                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
-                return redirect(reserva_url)
-
+            form.save() # É só isso! Ele atualiza os dados e a foto se houver uma nova.
             messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
-        if cliente.data_nascimento:
-            form.initial['data_nascimento'] = cliente.data_nascimento
 
     context = {
         'form': form,
