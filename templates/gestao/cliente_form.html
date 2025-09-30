@@ -213,38 +213,69 @@ document.addEventListener('DOMContentLoaded', function () {
     // Guarda a dataURL no hidden input como fallback
     const fotoDataUrlInput = document.getElementById('foto-dataurl');
     if (fotoDataUrlInput) fotoDataUrlInput.value = dataUrl;
-
         // --- A MÁGICA ACONTECE AQUI ---
         // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
+        // Usamos um flag para indicar que o attach está em progresso e dispatchEvent
+        // para garantir que qualquer handler de submit que construa um FormData
+        // capture o arquivo.
+        window.fotoAttachInProgress = true;
         canvas.toBlob(function(blob) {
-            const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
+            try {
+                const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
 
-            // Usa a API DataTransfer para adicionar o arquivo ao input
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
+                // Usa a API DataTransfer para adicionar o arquivo ao input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
 
                 if (!fotoInput) {
-                console.error('foto-input element not found. Cannot attach captured file.');
-            } else {
-                console.log('foto-input found. files before attach:', fotoInput.files.length);
-                fotoInput.files = dataTransfer.files;
-                // Log attached file details so we can see it in Console/DevTools
-                if (fotoInput.files && fotoInput.files.length > 0) {
-                    const f = fotoInput.files[0];
-                    console.log('Attached captured file to foto-input:', f.name, f.type, f.size);
+                    console.error('foto-input element not found. Cannot attach captured file.');
+                } else {
+                    console.log('foto-input found. files before attach:', fotoInput.files.length);
+                    fotoInput.files = dataTransfer.files;
+                    // Log attached file details so we can see it in Console/DevTools
+                    if (fotoInput.files && fotoInput.files.length > 0) {
+                        const f = fotoInput.files[0];
+                        console.log('Attached captured file to foto-input:', f.name, f.type, f.size);
                     } else {
                         console.warn('After assignment, foto-input.files is empty');
                     }
 
-                // Opcional: dispara um evento de 'change' se necessário
-                fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    // dispatch change so any submit/handler picks up the new file
+                    fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    // mark as attached for other code paths
+                    try { fotoInput.dataset.attached = '1'; } catch(e){}
+                }
+            } finally {
+                // reset flag mesmo se houver erro
+                window.fotoAttachInProgress = false;
             }
-
         }, 'image/jpeg');
         
         // Fecha o modal
         cameraModal.hide();
     });
+    
+        // Intercepta o submit do formulário para aguardar o attach da foto se necessário
+        // (usa fotoInput.form para garantir pegar o form correto)
+        try {
+            const formForFoto = fotoInput && fotoInput.form;
+            if (formForFoto) {
+                formForFoto.addEventListener('submit', function(e) {
+                    if (window.fotoAttachInProgress) {
+                        e.preventDefault();
+                        console.log('Waiting for photo attach before submit...');
+                        const check = setInterval(() => {
+                            if (!window.fotoAttachInProgress) {
+                                clearInterval(check);
+                                formForFoto.submit();
+                            }
+                        }, 100);
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Error wiring submit waiter for foto attach:', err);
+        }
 });
 </script>
 <script>
