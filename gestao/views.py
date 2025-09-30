@@ -196,19 +196,36 @@ def cliente_create_view(request):
                         file_obj = None
 
                 if file_obj:
+                    # determine size in bytes (works for BytesIO and UploadedFile)
                     try:
-                        size = getattr(file_obj, 'size', 'unknown')
+                        if hasattr(file_obj, 'getbuffer'):
+                            size = file_obj.getbuffer().nbytes
+                        else:
+                            size = getattr(file_obj, 'size', None) or 'unknown'
                     except Exception:
                         size = 'unknown'
+
                     logger.warning("Received uploaded file for new cliente: name=%s size=%s", getattr(foto, 'name', None) or filename_for_upload, size)
 
-                    # Build a safe filename and upload to S3
-                    from django.utils.text import slugify
-                    import os
-                    name, ext = os.path.splitext(getattr(foto, 'name', filename_for_upload or 'foto'))
-                    safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
-                    key = f"clientes/{cliente.pk}/{safe_name}"
-                    logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, content_type or getattr(foto, 'content_type', None))
+                    # Basic validation: only image/* MIME types and reasonable size (e.g. 2MB)
+                    MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+                    if content_type and not str(content_type).startswith('image/'):
+                        logger.warning('Rejected upload: content_type not image: %s', content_type)
+                        messages.error(request, 'Formato de arquivo inválido. Envie uma imagem (jpg/png).')
+                        file_obj = None
+                    elif isinstance(size, int) and size != 'unknown' and size > MAX_BYTES:
+                        logger.warning('Rejected upload: file too large (%s bytes) for cliente %s', size, cliente.pk)
+                        messages.error(request, 'A imagem é muito grande. Envie uma imagem menor que 2MB.')
+                        file_obj = None
+
+                    # Build a safe filename and upload to S3 (only if still valid)
+                    if file_obj:
+                        from django.utils.text import slugify
+                        import os
+                        name, ext = os.path.splitext(getattr(foto, 'name', filename_for_upload or 'foto'))
+                        safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
+                        key = f"clientes/{cliente.pk}/{safe_name}"
+                        logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, content_type or getattr(foto, 'content_type', None))
                     try:
                         url = upload_file_to_s3(file_obj, key, acl='public-read', content_type=content_type or getattr(foto, 'content_type', None))
                     except Exception as e:
@@ -270,23 +287,38 @@ def cliente_update_view(request, pk):
             # Se agora temos um arquivo (seja enviado diretamente ou decodificado), faz upload
             if foto_file:
                 try:
-                    size = getattr(foto_file, 'size', 'unknown')
+                    if hasattr(foto_file, 'getbuffer'):
+                        size = foto_file.getbuffer().nbytes
+                    else:
+                        size = getattr(foto_file, 'size', None) or 'unknown'
                 except Exception:
                     size = 'unknown'
                 logger.warning("Received uploaded file for existing cliente pk=%s: name=%s size=%s", cliente.pk, getattr(foto_file, 'name', None), size)
 
+                # Basic validation: only image/* MIME types and reasonable size (2MB)
+                MAX_BYTES = 2 * 1024 * 1024
+                if content_type and not str(content_type).startswith('image/'):
+                    logger.warning('Rejected upload for cliente pk=%s: content_type not image: %s', cliente.pk, content_type)
+                    messages.error(request, 'Formato de arquivo inválido. Envie uma imagem (jpg/png).')
+                    foto_file = None
+                elif isinstance(size, int) and size != 'unknown' and size > MAX_BYTES:
+                    logger.warning('Rejected upload for cliente pk=%s: file too large (%s bytes)', cliente.pk, size)
+                    messages.error(request, 'A imagem é muito grande. Envie uma imagem menor que 2MB.')
+                    foto_file = None
+
                 # garante que a instância tem PK para construir a key
-                if not cliente.pk:
+                if foto_file and not cliente.pk:
                     cliente.save()
 
                 # nome seguro para o arquivo (preserva extensão)
-                from django.utils.text import slugify
-                import os
-                name, ext = os.path.splitext(getattr(foto_file, 'name', 'foto'))
-                safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
-                filename = f"clientes/{cliente.pk}/{safe_name}"
+                if foto_file:
+                    from django.utils.text import slugify
+                    import os
+                    name, ext = os.path.splitext(getattr(foto_file, 'name', 'foto'))
+                    safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
+                    filename = f"clientes/{cliente.pk}/{safe_name}"
 
-                logger.warning("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, content_type or getattr(foto_file, 'content_type', None))
+                    logger.warning("Attempting S3 upload for existing cliente pk=%s: key=%s content_type=%s", cliente.pk, filename, content_type or getattr(foto_file, 'content_type', None))
                 try:
                     url = upload_file_to_s3(foto_file, filename, acl='public-read', content_type=content_type or getattr(foto_file, 'content_type', None))
                 except Exception as e:
@@ -300,6 +332,11 @@ def cliente_update_view(request, pk):
                 logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s and no foto_dataurl provided", cliente.pk)
 
             cliente.save()
+            action = request.POST.get('action')
+            if action == 'save_and_reserve':
+                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
+                return redirect(reserva_url)
+
             messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
