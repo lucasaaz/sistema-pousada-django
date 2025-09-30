@@ -351,6 +351,68 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+<!-- Diagnostic submit handler: logs FormData and forces file append if missing -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    try {
+        const form = document.querySelector('form');
+        const fotoInput = document.getElementById('foto-input');
+        if (!form) return;
+
+        form.addEventListener('submit', function(e){
+            try {
+                const fd = new FormData(form);
+                console.groupCollapsed('DEBUG form FormData before submit');
+                for (const k of fd.keys()){
+                    const v = fd.get(k);
+                    if (v instanceof File) {
+                        console.log(k, `${v.name} (${v.size} bytes)`);
+                    } else if (typeof v === 'string' && v.length > 200) {
+                        console.log(k, v.slice(0,200) + '...');
+                    } else {
+                        console.log(k, v);
+                    }
+                }
+                console.groupEnd();
+
+                // If the input has a file but FormData doesn't, force a fallback
+                if (fotoInput && fotoInput.files && fotoInput.files.length > 0 && !fd.has('foto')) {
+                    console.warn('FormData missing "foto" field though foto-input has a file. Using fetch fallback to send the file.');
+                    e.preventDefault();
+
+                    const fd2 = new FormData(form);
+                    fd2.set('foto', fotoInput.files[0]);
+
+                    fetch(form.action || window.location.href, {
+                        method: (form.method || 'POST').toUpperCase(),
+                        body: fd2,
+                        credentials: 'include'
+                    }).then(response => {
+                        if (response.redirected) {
+                            window.location = response.url;
+                            return;
+                        }
+                        return response.text().then(text => {
+                            // Replace document with response (shows server-side validation/errors)
+                            document.open();
+                            document.write(text);
+                            document.close();
+                        });
+                    }).catch(err => {
+                        console.error('Fetch fallback submit failed:', err);
+                        alert('Erro ao enviar o formulário (consulta o console).');
+                    });
+                }
+                // otherwise allow normal submit to proceed
+            } catch(err) {
+                console.error('Error during submit diagnostic:', err);
+            }
+        });
+    } catch(e) {
+        console.error('Failed to install submit diagnostic handler:', e);
+    }
+});
+</script>
 {% endblock %}
 
 
