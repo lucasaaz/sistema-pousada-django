@@ -219,13 +219,12 @@ def cliente_create_view(request):
                         file_obj = None
 
                     # Build a safe filename and upload to S3 (only if still valid)
-                    if file_obj:
-                        from django.utils.text import slugify
-                        import os
-                        name, ext = os.path.splitext(getattr(foto, 'name', filename_for_upload or 'foto'))
-                        safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
-                        key = f"clientes/{cliente.pk}/{safe_name}"
-                        logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, content_type or getattr(foto, 'content_type', None))
+                    from django.utils.text import slugify
+                    import os
+                    name, ext = os.path.splitext(getattr(foto, 'name', filename_for_upload or 'foto'))
+                    safe_name = f"{slugify(cliente.nome_completo)}-{slugify(name)}{ext}"
+                    key = f"clientes/{cliente.pk}/{safe_name}"
+                    logger.warning("Attempting S3 upload for new cliente: key=%s content_type=%s", key, content_type or getattr(foto, 'content_type', None))
                     try:
                         url = upload_file_to_s3(file_obj, key, acl='public-read', content_type=content_type or getattr(foto, 'content_type', None))
                     except Exception as e:
@@ -239,8 +238,13 @@ def cliente_create_view(request):
                             cliente.foto_url = url
                         else:
                             cliente.foto = url
-                        cliente.save()
-                        logger.info("S3 upload succeeded for new cliente: url=%s", url)
+                        try:
+                            cliente.save()
+                        except Exception as e:
+                            logger.exception('Failed to save cliente after S3 upload (create): %s', e)
+                            messages.error(request, f'Erro ao salvar cliente: {e}')
+                        else:
+                            logger.info("S3 upload succeeded for new cliente: url=%s", url)
 
             action = request.POST.get('action')
             if action == 'save_and_reserve':
@@ -331,7 +335,11 @@ def cliente_update_view(request, pk):
             else:
                 logger.warning("No uploaded file found in request.FILES for existing cliente pk=%s and no foto_dataurl provided", cliente.pk)
 
-            cliente.save()
+            try:
+                cliente.save()
+            except Exception as e:
+                logger.exception('Failed to save cliente after processing upload (update) pk=%s: %s', cliente.pk, e)
+                messages.error(request, f'Erro ao salvar cliente: {e}')
             action = request.POST.get('action')
             if action == 'save_and_reserve':
                 reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
