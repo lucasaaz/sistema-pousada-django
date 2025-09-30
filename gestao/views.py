@@ -22,6 +22,9 @@ from django.contrib import messages
 import io
 import base64
 import logging
+from django.http import HttpResponseBadRequest
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 
 # logger for this module
 logger = logging.getLogger(__name__)
@@ -729,6 +732,51 @@ def buscar_clientes_view(request):
         })
 
     return JsonResponse(results, safe=False)
+
+
+# Debug endpoint: verifica o que foi recebido em um POST de upload (arquivo + dataurl)
+@login_required
+@require_POST
+def upload_debug_view(request):
+    """Retorna um JSON descrevendo os campos e arquivos recebidos na requisição POST.
+    Útil para depurar se o cliente enviou `foto` (File) ou `foto_dataurl`.
+    """
+    try:
+        keys = list(request.POST.keys())
+        file_keys = list(request.FILES.keys())
+
+        result = {
+            'post_keys': keys,
+            'file_keys': file_keys,
+            'foto_received': False,
+            'foto_name': None,
+            'foto_size': None,
+            'foto_content_type': None,
+            'foto_dataurl_present': False,
+            'foto_dataurl_length': 0,
+            'foto_dataurl_head': None,
+        }
+
+        if 'foto' in request.FILES:
+            f = request.FILES['foto']
+            result['foto_received'] = True
+            result['foto_name'] = getattr(f, 'name', None)
+            try:
+                result['foto_size'] = f.size
+            except Exception:
+                result['foto_size'] = None
+            result['foto_content_type'] = getattr(f, 'content_type', None)
+
+        foto_dataurl = request.POST.get('foto_dataurl')
+        if foto_dataurl:
+            result['foto_dataurl_present'] = True
+            result['foto_dataurl_length'] = len(foto_dataurl)
+            result['foto_dataurl_head'] = foto_dataurl[:256]
+
+        return JsonResponse(result)
+    except Exception as e:
+        logging.exception('upload_debug_view failed: %s', e)
+        return HttpResponseBadRequest('failed')
 
 # ==============================================================================
 # === View para listar e fazer upload de arquivos relacionados a uma reserva ===

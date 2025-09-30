@@ -23,6 +23,7 @@ urlpatterns = [
     path('clientes/', cliente_list_view, name='cliente_list'),
     path('clientes/adicionar/', cliente_create_view, name='cliente_add'),
     path('clientes/editar/<int:pk>/', cliente_update_view, name='cliente_edit'),      
+    path('clientes/debug/upload-check/', views.upload_debug_view, name='cliente_upload_debug'),
     path('clientes/excluir/<int:pk>/', cliente_delete_view, name='cliente_delete'),   
 
     # URLs para Tipos de Acomodação
