@@ -161,18 +161,24 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
-        # O ModelForm já sabe lidar com request.FILES e o ImageField
         form = ClienteForm(request.POST, request.FILES)
         if form.is_valid():
-            cliente = form.save() # Apenas isso. O upload para o S3 acontece aqui!
-            
-            messages.success(request, 'Cliente criado com sucesso!')
-            
-            action = request.POST.get('action')
-            if action == 'save_and_reserve':
-                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
-                return redirect(reserva_url)
-            return redirect('cliente_list')
+            try:
+                cliente = form.save()
+                messages.success(request, 'Cliente criado com sucesso!')
+                
+                action = request.POST.get('action')
+                if action == 'save_and_reserve':
+                    reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
+                    return redirect(reserva_url)
+                return redirect('cliente_list')
+
+            except Exception as e:
+                # Se qualquer erro ocorrer durante o .save() (incluindo o upload para o S3)
+                logger.exception(f"ERRO CRÍTICO AO SALVAR NOVO CLIENTE: {e}")
+                messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
+                # Re-renderiza a página com o formulário e a mensagem de erro
+                return render(request, 'gestao/cliente_form.html', {'form': form})
     else:
         form = ClienteForm()
         
@@ -187,12 +193,18 @@ def cliente_update_view(request, pk):
     if request.method == 'POST':
         form = ClienteForm(request.POST, request.FILES, instance=cliente)
         if form.is_valid():
-            form.save() # É só isso! Ele atualiza os dados e a foto se houver uma nova.
-            messages.success(request, 'Cliente atualizado com sucesso!')
-            return redirect('cliente_list')
-    else:
-        form = ClienteForm(instance=cliente)
+            try:
+                form.save()
+                messages.success(request, 'Cliente atualizado com sucesso!')
+                return redirect('cliente_list')
 
+            except Exception as e:
+                # Se qualquer erro ocorrer durante o .save() no modo de edição
+                logger.exception(f"ERRO AO ATUALIZAR CLIENTE (PK={pk}): {e}")
+                messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
+    
+    # Se a requisição for GET ou se o formulário for inválido no POST
+    form = ClienteForm(instance=cliente)
     context = {
         'form': form,
         'cliente': cliente,
