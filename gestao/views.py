@@ -191,6 +191,11 @@ def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':
+        # ======== ADICIONE ESTAS DUAS LINHAS DE DEBUG AQUI ========
+        logger.warning(f"DEBUG NO UPDATE: request.POST recebido = {request.POST}")
+        logger.warning(f"DEBUG NO UPDATE: request.FILES recebido = {request.FILES}")
+        # ==========================================================
+
         form = ClienteForm(request.POST, request.FILES, instance=cliente)
         if form.is_valid():
             try:
@@ -199,7 +204,6 @@ def cliente_update_view(request, pk):
                 return redirect('cliente_list')
 
             except Exception as e:
-                # Se qualquer erro ocorrer durante o .save() no modo de edição
                 logger.exception(f"ERRO AO ATUALIZAR CLIENTE (PK={pk}): {e}")
                 messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
     
