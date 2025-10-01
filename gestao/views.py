@@ -161,7 +161,9 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
+        # 1. Cria o formulário com os dados enviados
         form = ClienteForm(request.POST, request.FILES)
+        # 2. Verifica se é válido
         if form.is_valid():
             try:
                 cliente = form.save()
@@ -174,14 +176,14 @@ def cliente_create_view(request):
                 return redirect('cliente_list')
 
             except Exception as e:
-                # Se qualquer erro ocorrer durante o .save() (incluindo o upload para o S3)
                 logger.exception(f"ERRO CRÍTICO AO SALVAR NOVO CLIENTE: {e}")
                 messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
-                # Re-renderiza a página com o formulário e a mensagem de erro
-                return render(request, 'gestao/cliente_form.html', {'form': form})
+                # O 'form' aqui já contém o erro, então apenas o renderizamos abaixo
     else:
+        # Se não for POST, cria um formulário vazio
         form = ClienteForm()
-        
+    
+    # 3. Se o form for inválido (no POST) ou se for um GET, ele renderiza a página aqui
     return render(request, 'gestao/cliente_form.html', {'form': form})
 
 # ATUALIZAR (EDITAR) um cliente existente
@@ -191,26 +193,24 @@ def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':
-        # ======== ADICIONE ESTAS DUAS LINHAS DE DEBUG AQUI ========
-        logger.warning(f"DEBUG NO UPDATE: request.POST recebido = {request.POST}")
-        logger.warning(f"DEBUG NO UPDATE: request.FILES recebido = {request.FILES}")
-        # ==========================================================
-
+        # 1. Cria o formulário com os dados enviados e a instância existente
         form = ClienteForm(request.POST, request.FILES, instance=cliente)
+        # 2. Verifica se é válido
         if form.is_valid():
             try:
                 form.save()
                 messages.success(request, 'Cliente atualizado com sucesso!')
                 return redirect('cliente_list')
-
             except Exception as e:
                 logger.exception(f"ERRO AO ATUALIZAR CLIENTE (PK={pk}): {e}")
                 messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
-    
-    # Se a requisição for GET ou se o formulário for inválido no POST
-    form = ClienteForm(instance=cliente)
+    else:
+        # Se não for POST, cria um formulário preenchido com os dados do cliente
+        form = ClienteForm(instance=cliente)
+
+    # 3. Monta o contexto para renderizar a página
     context = {
-        'form': form,
+        'form': form, # O form aqui pode ser o de edição (GET) ou o que falhou na validação (POST)
         'cliente': cliente,
         'object': cliente,
         'nascimento_para_js': cliente.data_nascimento.strftime('%Y-%m-%d') if cliente.data_nascimento else ''
