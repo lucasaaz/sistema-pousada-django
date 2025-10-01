@@ -88,18 +88,23 @@ USE_TZ = True
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 
+# Configuração padrão para o desenvolvimento local
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_prod') # Pasta para onde o collectstatic junta os arquivos
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# --- CONFIGURAÇÕES DE ARQUIVOS ---
+# Configuração específica para PRODUÇÃO (quando DEBUG=False)
 if not DEBUG:
-    # =======================
-    # --- PRODUÇÃO (Render) ---
-    # =======================
-    # Configs AWS
+    # AWS S3 Settings
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'sa-east-1')
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME')
     AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_ENDPOINT_URL = f'https://s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
@@ -107,11 +112,10 @@ if not DEBUG:
     AWS_DEFAULT_ACL = None
     AWS_S3_VERIFY = True
 
-    # --- CORREÇÃO 2: Usar o backend correto para arquivos estáticos ---
-    # S3StaticStorage é otimizado para o 'collectstatic'.
+    # Backend de armazenamento para arquivos estáticos (collectstatic)
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
     
-    # Armazenamento de mídia (uploads de usuários)
+    # Backend de armazenamento para arquivos de mídia (uploads de usuários)
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     
     # URLs para os arquivos no S3
