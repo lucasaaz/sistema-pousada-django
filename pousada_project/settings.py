@@ -114,6 +114,10 @@ if not DEBUG:
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'sa-east-1')
 
+    # --- ADICIONE ESTAS DUAS LINHAS PARA ROBUSTEZ ---
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_ENDPOINT_URL = f'https://s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+
     # Domínio do bucket
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
 
