@@ -220,11 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
         cameraModal.hide();
 
         canvas.toBlob(function(blob) {
-
-            // Pega o valor do nome do cliente no momento do clique
-            const clientName = nomeCompletoInput.value || 'novo-cliente';
-
-            fetch(`{% url 'api_gerar_url_upload' %}?client_name=${encodeURIComponent(clientName)}`)
+            fetch("{% url 'api_gerar_url_upload' %}")
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {

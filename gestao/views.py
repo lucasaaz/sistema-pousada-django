@@ -20,7 +20,6 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 import io
 import base64
-from django.utils.text import slugify
 import logging
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_POST
@@ -199,10 +198,6 @@ def cliente_update_view(request, pk):
 
             # Pega a URL da foto (se uma nova foi enviada)
             foto_url = request.POST.get('foto_dataurl')
-
-            # --- LINHA DE DEBUG ADICIONADA AQUI ---
-            logger.warning(f"DEBUG FOTO URL RECEBIDA: {foto_url}")
-
             if foto_url:
                 cliente.foto = foto_url
                 cliente.save()
@@ -258,17 +253,10 @@ def verificar_duplicidade_view(request):
 @login_required
 def gerar_url_upload_view(request):
     bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
-
-    # Pega o nome do cliente enviado pelo JavaScript
-    client_name = request.GET.get('client_name', 'cliente-desconhecido')
-    
-    # Cria um nome de arquivo "amigável" usando o nome do cliente
-    safe_client_name = slugify(client_name)
-    unique_id = uuid.uuid4().hex[:6]
     
     # Gera um nome de arquivo único para evitar conflitos
     # Ex: media/clientes_fotos/a8f5b2c1-3d7e-4b1f-8c7c-1b2d7e4b5a6c.jpg
-    object_name = f"media/clientes_fotos/{safe_client_name}-{unique_id}.jpg"
+    object_name = f"media/clientes_fotos/{uuid.uuid4()}.jpg"
 
     s3_client = boto3.client(
         's3',
