@@ -13,12 +13,14 @@ from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, I
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        # Campos que aparecerão no formulário
-        fields = [
-            'nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone',
-            'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'
-        ]
-        # Adiciona classes do Bootstrap para estilizar os campos
+        
+        # Use APENAS o exclude. Isso diz ao Django para usar todos os campos
+        # do modelo Cliente, menos o campo 'foto'.
+        exclude = ['foto']
+
+        # A lista 'fields' foi REMOVIDA para evitar o conflito.
+        
+        # O widget para 'foto' também foi REMOVIDO do dicionário abaixo.
         widgets = {
             'nome_completo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome completo do cliente'}),
             'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00'}),
@@ -32,7 +34,6 @@ class ClienteForm(forms.ModelForm):
             'bairro': forms.TextInput(attrs={'class': 'form-control', 'id': 'bairro-input'}),
             'cidade': forms.TextInput(attrs={'class': 'form-control', 'id': 'cidade-input'}),
             'estado': forms.TextInput(attrs={'class': 'form-control', 'id': 'estado-input'}),
-            'foto': forms.FileInput(attrs={'class': 'd-none', 'id': 'foto-input'}),           
         }
 
 # Formulario para Tipos de Acomodação
