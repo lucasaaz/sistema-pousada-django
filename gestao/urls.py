@@ -115,4 +115,7 @@ urlpatterns = [
 
     # URL para a API de verificação de duplicidade de CPF ou e-mail
     path('api/verificar-duplicidade/', views.verificar_duplicidade_view, name='api_verificar_duplicidade'),
+
+    # ADICIONE ESTA URL DE DEBUG NO FINAL DA LISTA
+    path('debug-s3/', views.debug_s3_view, name='debug_s3'),
 ]

@@ -24,6 +24,9 @@ import logging
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+import boto3
+from django.http import HttpResponse
+import os
 
 # logger for this module
 logger = logging.getLogger(__name__)
@@ -1385,3 +1388,60 @@ class CategoriaGastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
     model = CategoriaGasto
     template_name = 'gestao/categoria_gasto_confirm_delete.html'
     success_url = reverse_lazy('categoria_gasto_list')
+
+
+
+
+
+
+
+# ADICIONE ESTA NOVA VIEW DE DIAGNÓSTICO
+def debug_s3_view(request):
+    bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
+    access_key = os.getenv('AWS_ACCESS_KEY_ID')
+    secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    region = os.getenv('AWS_S3_REGION_NAME')
+
+    # Monta uma resposta HTML para vermos os resultados
+    html = "<h1>Diagnóstico de Conexão S3</h1>"
+    html += f"<p><b>Bucket a ser testado:</b> {bucket_name}</p>"
+    html += f"<p><b>Região:</b> {region}</p>"
+    html += f"<p><b>Access Key ID encontrada:</b> {'Sim' if access_key else 'NÃO'}</p>"
+    
+    if not all([bucket_name, access_key, secret_key, region]):
+        html += "<p style='color: red;'><b>ERRO: Uma ou mais variáveis de ambiente da AWS não foram encontradas!</b></p>"
+        return HttpResponse(html)
+
+    try:
+        # Tenta se conectar ao S3
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name=region,
+            config=boto3.session.Config(signature_version='s3v4')
+        )
+        
+        # Tenta escrever um pequeno arquivo de teste
+        test_content = "Teste de escrita bem-sucedido."
+        test_key = "test-debug-file.txt"
+        
+        html += f"<p>Tentando escrever o arquivo '{test_key}' no bucket...</p>"
+        
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=test_key,
+            Body=test_content,
+            ContentType='text/plain'
+        )
+        
+        html += "<p style='color: green;'><b>SUCESSO! O arquivo de teste foi escrito no S3.</b></p>"
+        html += "<p>Isso significa que as credenciais e permissões de escrita estão funcionando!</p>"
+        
+    except Exception as e:
+        # Se qualquer erro ocorrer, exibe na tela
+        html += f"<p style='color: red;'><b>FALHA NA CONEXÃO OU ESCRITA!</b></p>"
+        html += f"<p><b>Mensagem de Erro do Boto3:</b></p>"
+        html += f"<pre>{e}</pre>"
+
+    return HttpResponse(html)

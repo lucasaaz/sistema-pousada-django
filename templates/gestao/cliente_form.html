@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function () {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     // Mostra a preview da foto na página principal
-    const dataUrl = canvas.toDataURL('image/jpeg');
+    const dataUrl = canvas.toDataURL('image/png');
     fotoPreview.src = dataUrl;
     fotoPreview.style.display = 'block';
     // Guarda a dataURL no hidden input como fallback
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // reset flag mesmo se houver erro
                 window.fotoAttachInProgress = false;
             }
-        }, 'image/jpeg');
+        }, 'image/png');
         
         // Fecha o modal
         cameraModal.hide();
