@@ -118,4 +118,7 @@ urlpatterns = [
 
     # ADICIONE ESTA URL DE DEBUG NO FINAL DA LISTA
     path('debug-s3/', views.debug_s3_view, name='debug_s3'),
+
+    # ADICIONE ESTA NOVA ROTA PARA GERAR A URL DE UPLOAD
+    path('api/gerar-url-upload/', views.gerar_url_upload_view, name='api_gerar_url_upload'),
 ]

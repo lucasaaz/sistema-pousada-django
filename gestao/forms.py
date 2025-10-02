@@ -16,7 +16,7 @@ class ClienteForm(forms.ModelForm):
         # Campos que aparecerão no formulário
         fields = [
             'nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone',
-            'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'foto'
+            'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'
         ]
         # Adiciona classes do Bootstrap para estilizar os campos
         widgets = {

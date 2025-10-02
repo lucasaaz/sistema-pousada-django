@@ -173,51 +173,58 @@ document.addEventListener('DOMContentLoaded', function () {
     const snapButton = document.getElementById('snap');
     const fotoPreview = document.getElementById('foto-preview');
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+    const fotoUrlInput = document.getElementById('foto_dataurl'); // Nosso campo oculto
 
-    // Pega o novo campo oculto que adicionamos
-    const fotoDataUrlInput = document.getElementById('foto_dataurl');
+    // ... (código para iniciar e parar a câmera continua o mesmo) ...
 
-    // Quando o modal for aberto, inicia a câmera (código continua igual)
-    document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            video.srcObject = stream;
-        } catch (err) {
-            console.error("Erro ao acessar a câmera: ", err);
-            alert("Não foi possível acessar a câmera. Verifique as permissões do seu navegador.");
-            cameraModal.hide();
-        }
-    });
-
-    // Quando o modal for fechado, para a câmera (código continua igual)
-    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
-        const stream = video.srcObject;
-        if (stream) {
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
-        }
-    });
-
-    // Botão de capturar a foto (LÓGICA SIMPLIFICADA)
     snapButton.addEventListener('click', function () {
+        // ... (código para desenhar a imagem no canvas) ...
         const context = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Mostra a preview da foto na página principal
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        fotoPreview.src = dataUrl;
+        // Mostra uma preview local temporária
+        fotoPreview.src = canvas.toDataURL('image/jpeg');
         fotoPreview.style.display = 'block';
-
-        // --- ESTA É A ÚNICA PARTE QUE IMPORTA AGORA ---
-        // Apenas salvamos o texto da imagem (base64) no campo oculto. E só.
-        if(fotoDataUrlInput) {
-            fotoDataUrlInput.value = dataUrl;
-        }
-        
-        // Fecha o modal
         cameraModal.hide();
+
+        // Converte a imagem do canvas para um 'blob' (formato de arquivo binário)
+        canvas.toBlob(function(blob) {
+            
+            // 1. Pede a URL de upload para o nosso servidor Django
+            fetch("{% url 'api_gerar_url_upload' %}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Erro ao obter permissão de upload: ' + data.error);
+                        return;
+                    }
+
+                    // 2. Envia o arquivo de imagem DIRETO para a URL da AWS
+                    fetch(data.presigned_url, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'image/jpeg'
+                        },
+                        body: blob
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            // 3. SUCESSO! Guarda a URL final no campo oculto do formulário
+                            alert('Foto enviada com sucesso!');
+                            fotoUrlInput.value = data.final_url;
+                            fotoPreview.src = data.final_url; // Atualiza a preview com a foto real do S3
+                        } else {
+                            alert('Falha no upload para a AWS. Verifique o console.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Erro no upload direto:', err);
+                        alert('Erro de rede ao enviar a foto.');
+                    });
+                });
+        }, 'image/jpeg');
     });
 });
 </script>

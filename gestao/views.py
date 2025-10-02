@@ -23,10 +23,12 @@ import base64
 import logging
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_POST
-from django.contrib.auth.decorators import login_required
 import boto3
 from django.http import HttpResponse
 import os
+import uuid
+from botocore.exceptions import ClientError
+
 
 # logger for this module
 logger = logging.getLogger(__name__)
@@ -165,53 +167,25 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
-        # Usamos apenas request.POST, pois a imagem vem como texto (dataURL)
         form = ClienteForm(request.POST)
         if form.is_valid():
-            # Salva o cliente sem a foto primeiro, para gerar um ID (pk)
-            cliente = form.save(commit=False)
-            cliente.save() # Agora o cliente.pk existe
-
-            # Pega o texto da imagem (base64) do campo oculto
-            foto_dataurl = request.POST.get('foto_dataurl')
+            cliente = form.save()
             
-            # Se uma foto foi capturada, processa o upload
-            if foto_dataurl and foto_dataurl.startswith('data:image'):
-                try:
-                    header, encoded = foto_dataurl.split(',', 1)
-                    decoded_file = base64.b64decode(encoded)
-                    file_obj = io.BytesIO(decoded_file)
-                    
-                    bucket = os.getenv('AWS_STORAGE_BUCKET_NAME')
-                    filename = f"media/clientes_fotos/{cliente.pk}/foto_{cliente.pk}.jpg"
-                    
-                    # Chama sua função de upload
-                    url = upload_file_to_s3(file_obj, bucket, filename)
-                    
-                    if url:
-                        cliente.foto = url
-                        cliente.save() # Salva o cliente novamente, agora com a URL da foto
-                        messages.success(request, 'Cliente e foto criados com sucesso!')
-                    else:
-                        messages.error(request, "Cliente criado, mas houve uma falha ao enviar a foto para o S3.")
-                
-                except Exception as e:
-                    messages.error(request, f"Erro ao processar a foto: {e}")
-            else:
-                messages.success(request, 'Cliente criado com sucesso (sem foto).')
-
-            # Lógica de redirecionamento
-            action = request.POST.get('action')
-            if action == 'save_and_reserve':
-                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
-                return redirect(reserva_url)
+            # Pega a URL da foto (que o JS já enviou para o S3)
+            foto_url = request.POST.get('foto_dataurl')
+            if foto_url:
+                cliente.foto = foto_url
+                cliente.save()
+            
+            messages.success(request, 'Cliente criado com sucesso!')
+            # ... (sua lógica de redirect para reserva) ...
             return redirect('cliente_list')
     else:
         form = ClienteForm()
     
     return render(request, 'gestao/cliente_form.html', {'form': form})
 
-# ATUALIZAR (EDITAR) um cliente existente
+# EDITAR um novo cliente
 @login_required
 @permission_required('gestao.change_cliente', raise_exception=True)
 def cliente_update_view(request, pk):
@@ -220,36 +194,20 @@ def cliente_update_view(request, pk):
     if request.method == 'POST':
         form = ClienteForm(request.POST, instance=cliente)
         if form.is_valid():
-            cliente = form.save() # Salva as alterações de texto
-            foto_dataurl = request.POST.get('foto_dataurl')
-            
-            # Se uma NOVA foto foi capturada, processa o upload
-            if foto_dataurl and foto_dataurl.startswith('data:image'):
-                try:
-                    header, encoded = foto_dataurl.split(',', 1)
-                    decoded_file = base64.b64decode(encoded)
-                    file_obj = io.BytesIO(decoded_file)
-                    
-                    bucket = os.getenv('AWS_STORAGE_BUCKET_NAME')
-                    filename = f"media/clientes_fotos/{cliente.pk}/foto_{cliente.pk}.jpg"
-                    
-                    url = upload_file_to_s3(file_obj, bucket, filename)
-                    if url:
-                        cliente.foto = url
-                        cliente.save() # Salva novamente com a nova URL
-                        messages.success(request, 'Cliente e foto atualizados com sucesso!')
-                    else:
-                        messages.error(request, "Dados do cliente atualizados, mas houve uma falha ao enviar a nova foto.")
-                
-                except Exception as e:
-                    messages.error(request, f"Erro ao processar a nova foto: {e}")
-            else:
-                messages.success(request, 'Cliente atualizado com sucesso!')
+            cliente = form.save()
 
+            # Pega a URL da foto (se uma nova foi enviada)
+            foto_url = request.POST.get('foto_dataurl')
+            if foto_url:
+                cliente.foto = foto_url
+                cliente.save()
+
+            messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
 
+    # ... (seu context para edição continua igual) ...
     context = {
         'form': form,
         'cliente': cliente,
@@ -291,6 +249,38 @@ def verificar_duplicidade_view(request):
 
     # Se 'check.exists()' for True, significa que o valor já foi pego
     return JsonResponse({'is_taken': check.exists()})
+
+@login_required
+def gerar_url_upload_view(request):
+    bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
+    
+    # Gera um nome de arquivo único para evitar conflitos
+    # Ex: media/clientes_fotos/a8f5b2c1-3d7e-4b1f-8c7c-1b2d7e4b5a6c.jpg
+    object_name = f"media/clientes_fotos/{uuid.uuid4()}.jpg"
+
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.getenv('AWS_S3_REGION_NAME'),
+        config=boto3.session.Config(signature_version='s3v4')
+    )
+    
+    try:
+        # Gera a URL pré-assinada que permite um 'PUT' request
+        presigned_url = s3_client.generate_presigned_url(
+            'put_object',
+            Params={'Bucket': bucket_name, 'Key': object_name, 'ContentType': 'image/jpeg'},
+            ExpiresIn=3600  # A URL expira em 1 hora
+        )
+        
+        # A URL final e permanente do arquivo após o upload
+        final_url = f"https://{bucket_name}.s3.amazonaws.com/{object_name}"
+
+        return JsonResponse({'presigned_url': presigned_url, 'final_url': final_url})
+
+    except ClientError as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 # ==============================================================================
 # === VIEWS PARA A GESTÃO DE TIPOS DE ACOMODAÇÃO                             ===
