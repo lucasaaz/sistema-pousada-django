@@ -31,7 +31,7 @@ class Cliente(models.Model):
     bairro = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
     cidade = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
     estado = models.CharField(max_length=2, null=True, blank=True, verbose_name="UF") # Atualizado 18.09.25
-    foto = models.ImageField(max_length=100000, upload_to='clientes_fotos/', null=True, blank=True, verbose_name="Foto do Cliente")
+    foto = models.URLField(max_length=1024, null=True, blank=True, verbose_name="Foto do Cliente")
 
 
     def __str__(self):

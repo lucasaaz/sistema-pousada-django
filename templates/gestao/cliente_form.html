@@ -168,17 +168,16 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Abrir camera e capturar foto
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const snapButton = document.getElementById('snap');
     const fotoPreview = document.getElementById('foto-preview');
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
 
-    // O campo de input de arquivo (id estável definido no form)
-    const fotoInput = document.getElementById('foto-input');
+    // Pega o novo campo oculto que adicionamos
+    const fotoDataUrlInput = document.getElementById('foto_dataurl');
 
-    // Quando o modal for aberto, inicia a câmera
+    // Quando o modal for aberto, inicia a câmera (código continua igual)
     document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -190,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Quando o modal for fechado, para a câmera
+    // Quando o modal for fechado, para a câmera (código continua igual)
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
         const stream = video.srcObject;
         if (stream) {
@@ -199,83 +198,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Botão de capturar a foto
+    // Botão de capturar a foto (LÓGICA SIMPLIFICADA)
     snapButton.addEventListener('click', function () {
         const context = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Mostra a preview da foto na página principal
-    const dataUrl = canvas.toDataURL('image/png');
-    fotoPreview.src = dataUrl;
-    fotoPreview.style.display = 'block';
-    // Guarda a dataURL no hidden input como fallback
-    const fotoDataUrlInput = document.getElementById('foto-dataurl');
-    if (fotoDataUrlInput) fotoDataUrlInput.value = dataUrl;
-        // --- A MÁGICA ACONTECE AQUI ---
-        // Converte a imagem do canvas para um arquivo e a anexa ao input de formulário
-        // Usamos um flag para indicar que o attach está em progresso e dispatchEvent
-        // para garantir que qualquer handler de submit que construa um FormData
-        // capture o arquivo.
-        window.fotoAttachInProgress = true;
-        canvas.toBlob(function(blob) {
-            try {
-                const file = new File([blob], "foto_cliente.png", { type: "image/png" });
+        // Mostra a preview da foto na página principal
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        fotoPreview.src = dataUrl;
+        fotoPreview.style.display = 'block';
 
-                // Usa a API DataTransfer para adicionar o arquivo ao input
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-
-                if (!fotoInput) {
-                    console.error('foto-input element not found. Cannot attach captured file.');
-                } else {
-                    console.log('foto-input found. files before attach:', fotoInput.files.length);
-                    fotoInput.files = dataTransfer.files;
-                    // Log attached file details so we can see it in Console/DevTools
-                    if (fotoInput.files && fotoInput.files.length > 0) {
-                        const f = fotoInput.files[0];
-                        console.log('Attached captured file to foto-input:', f.name, f.type, f.size);
-                    } else {
-                        console.warn('After assignment, foto-input.files is empty');
-                    }
-
-                    // dispatch change so any submit/handler picks up the new file
-                    fotoInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    // mark as attached for other code paths
-                    try { fotoInput.dataset.attached = '1'; } catch(e){}
-                }
-            } finally {
-                // reset flag mesmo se houver erro
-                window.fotoAttachInProgress = false;
-            }
-        }, 'image/png');
+        // --- ESTA É A ÚNICA PARTE QUE IMPORTA AGORA ---
+        // Apenas salvamos o texto da imagem (base64) no campo oculto. E só.
+        if(fotoDataUrlInput) {
+            fotoDataUrlInput.value = dataUrl;
+        }
         
         // Fecha o modal
         cameraModal.hide();
     });
-    
-        // Intercepta o submit do formulário para aguardar o attach da foto se necessário
-        // (usa fotoInput.form para garantir pegar o form correto)
-        try {
-            const formForFoto = fotoInput && fotoInput.form;
-            if (formForFoto) {
-                formForFoto.addEventListener('submit', function(e) {
-                    if (window.fotoAttachInProgress) {
-                        e.preventDefault();
-                        console.log('Waiting for photo attach before submit...');
-                        const check = setInterval(() => {
-                            if (!window.fotoAttachInProgress) {
-                                clearInterval(check);
-                                formForFoto.submit();
-                            }
-                        }, 100);
-                    }
-                });
-            }
-        } catch (err) {
-            console.error('Error wiring submit waiter for foto attach:', err);
-        }
 });
 </script>
 <script>
@@ -348,68 +291,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (nascimentoInput && nascimentoValue) {
         nascimentoInput.value = nascimentoValue;
-    }
-});
-</script>
-<!-- Diagnostic submit handler: logs FormData and forces file append if missing -->
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-    try {
-        const form = document.querySelector('form');
-        const fotoInput = document.getElementById('foto-input');
-        if (!form) return;
-
-        form.addEventListener('submit', function(e){
-            try {
-                const fd = new FormData(form);
-                console.groupCollapsed('DEBUG form FormData before submit');
-                for (const k of fd.keys()){
-                    const v = fd.get(k);
-                    if (v instanceof File) {
-                        console.log(k, `${v.name} (${v.size} bytes)`);
-                    } else if (typeof v === 'string' && v.length > 200) {
-                        console.log(k, v.slice(0,200) + '...');
-                    } else {
-                        console.log(k, v);
-                    }
-                }
-                console.groupEnd();
-
-                // If the input has a file but FormData doesn't, force a fallback
-                if (fotoInput && fotoInput.files && fotoInput.files.length > 0 && !fd.has('foto')) {
-                    console.warn('FormData missing "foto" field though foto-input has a file. Using fetch fallback to send the file.');
-                    e.preventDefault();
-
-                    const fd2 = new FormData(form);
-                    fd2.set('foto', fotoInput.files[0]);
-
-                    fetch(form.action || window.location.href, {
-                        method: (form.method || 'POST').toUpperCase(),
-                        body: fd2,
-                        credentials: 'include'
-                    }).then(response => {
-                        if (response.redirected) {
-                            window.location = response.url;
-                            return;
-                        }
-                        return response.text().then(text => {
-                            // Replace document with response (shows server-side validation/errors)
-                            document.open();
-                            document.write(text);
-                            document.close();
-                        });
-                    }).catch(err => {
-                        console.error('Fetch fallback submit failed:', err);
-                        alert('Erro ao enviar o formulário (consulta o console).');
-                    });
-                }
-                // otherwise allow normal submit to proceed
-            } catch(err) {
-                console.error('Error during submit diagnostic:', err);
-            }
-        });
-    } catch(e) {
-        console.error('Failed to install submit diagnostic handler:', e);
     }
 });
 </script>

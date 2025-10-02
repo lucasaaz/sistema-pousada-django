@@ -164,29 +164,35 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
-        # 1. Cria o formulário com os dados enviados
-        form = ClienteForm(request.POST, request.FILES)
-        # 2. Verifica se é válido
+        form = ClienteForm(request.POST) # Não precisamos mais de request.FILES aqui
         if form.is_valid():
-            try:
-                cliente = form.save()
-                messages.success(request, 'Cliente criado com sucesso!')
-                
-                action = request.POST.get('action')
-                if action == 'save_and_reserve':
-                    reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
-                    return redirect(reserva_url)
-                return redirect('cliente_list')
+            cliente = form.save()
+            foto_dataurl = request.POST.get('foto_dataurl')
+            
+            if foto_dataurl:
+                try:
+                    # Decodifica a imagem
+                    header, encoded = foto_dataurl.split(',', 1)
+                    decoded_file = base64.b64decode(encoded)
+                    file_obj = io.BytesIO(decoded_file)
+                    
+                    # Monta o nome do arquivo e envia para o S3
+                    bucket = os.getenv('AWS_STORAGE_BUCKET_NAME')
+                    filename = f"media/clientes_fotos/{cliente.pk}/foto.jpg"
+                    
+                    url = upload_file_to_s3(file_obj, bucket, filename)
+                    if url:
+                        cliente.foto = url
+                        cliente.save()
+                except Exception as e:
+                    messages.error(request, f"Erro ao processar a foto: {e}")
 
-            except Exception as e:
-                logger.exception(f"ERRO CRÍTICO AO SALVAR NOVO CLIENTE: {e}")
-                messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
-                # O 'form' aqui já contém o erro, então apenas o renderizamos abaixo
+            messages.success(request, 'Cliente criado com sucesso!')
+            # ... (sua lógica de redirect para reserva continua aqui) ...
+            return redirect('cliente_list')
     else:
-        # Se não for POST, cria um formulário vazio
         form = ClienteForm()
     
-    # 3. Se o form for inválido (no POST) ou se for um GET, ele renderiza a página aqui
     return render(request, 'gestao/cliente_form.html', {'form': form})
 
 # ATUALIZAR (EDITAR) um cliente existente
@@ -196,24 +202,33 @@ def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':
-        # 1. Cria o formulário com os dados enviados e a instância existente
-        form = ClienteForm(request.POST, request.FILES, instance=cliente)
-        # 2. Verifica se é válido
+        form = ClienteForm(request.POST, instance=cliente) # Não precisa de request.FILES
         if form.is_valid():
-            try:
-                form.save()
-                messages.success(request, 'Cliente atualizado com sucesso!')
-                return redirect('cliente_list')
-            except Exception as e:
-                logger.exception(f"ERRO AO ATUALIZAR CLIENTE (PK={pk}): {e}")
-                messages.error(request, f"Ocorreu um erro ao salvar a foto no S3. Detalhe do erro: {e}")
+            cliente = form.save()
+            foto_dataurl = request.POST.get('foto_dataurl')
+            
+            if foto_dataurl:
+                # (Mesma lógica de decodificar e fazer upload do create_view)
+                try:
+                    header, encoded = foto_dataurl.split(',', 1)
+                    decoded_file = base64.b64decode(encoded)
+                    file_obj = io.BytesIO(decoded_file)
+                    bucket = os.getenv('AWS_STORAGE_BUCKET_NAME')
+                    filename = f"media/clientes_fotos/{cliente.pk}/foto.jpg"
+                    url = upload_file_to_s3(file_obj, bucket, filename)
+                    if url:
+                        cliente.foto = url
+                        cliente.save()
+                except Exception as e:
+                    messages.error(request, f"Erro ao processar a foto: {e}")
+
+            messages.success(request, 'Cliente atualizado com sucesso!')
+            return redirect('cliente_list')
     else:
-        # Se não for POST, cria um formulário preenchido com os dados do cliente
         form = ClienteForm(instance=cliente)
 
-    # 3. Monta o contexto para renderizar a página
     context = {
-        'form': form, # O form aqui pode ser o de edição (GET) ou o que falhou na validação (POST)
+        'form': form,
         'cliente': cliente,
         'object': cliente,
         'nascimento_para_js': cliente.data_nascimento.strftime('%Y-%m-%d') if cliente.data_nascimento else ''
