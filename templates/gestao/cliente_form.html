@@ -175,7 +175,34 @@ document.addEventListener('DOMContentLoaded', function () {
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
     const fotoUrlInput = document.getElementById('foto_dataurl'); // Nosso campo oculto
 
-    // ... (código para iniciar e parar a câmera continua o mesmo) ...
+    // Quando o modal for aberto, inicia a câmera
+    document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
+        // --- CORREÇÃO APLICADA AQUI ---
+        // Pegamos o elemento de vídeo SÓ DEPOIS que temos certeza que o modal está visível
+        video = document.getElementById('video');
+        
+        try {
+            if (!video) {
+                throw new Error("Elemento de vídeo não encontrado no modal.");
+            }
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error("Erro ao acessar a câmera: ", err);
+            alert("Não foi possível acessar a câmera. Verifique as permissões do seu navegador.");
+            cameraModal.hide();
+        }
+    });
+
+    // Quando o modal for fechado, para a câmera
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
+        if (video && video.srcObject) {
+            const stream = video.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            video.srcObject = null;
+        }
+    });
 
     snapButton.addEventListener('click', function () {
         // ... (código para desenhar a imagem no canvas) ...
