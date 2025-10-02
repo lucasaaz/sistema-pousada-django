@@ -165,31 +165,46 @@ def cliente_list_view(request):
 @permission_required('gestao.add_cliente', raise_exception=True)
 def cliente_create_view(request):
     if request.method == 'POST':
-        form = ClienteForm(request.POST) # Não precisamos mais de request.FILES aqui
+        # Usamos apenas request.POST, pois a imagem vem como texto (dataURL)
+        form = ClienteForm(request.POST)
         if form.is_valid():
-            cliente = form.save()
+            # Salva o cliente sem a foto primeiro, para gerar um ID (pk)
+            cliente = form.save(commit=False)
+            cliente.save() # Agora o cliente.pk existe
+
+            # Pega o texto da imagem (base64) do campo oculto
             foto_dataurl = request.POST.get('foto_dataurl')
             
-            if foto_dataurl:
+            # Se uma foto foi capturada, processa o upload
+            if foto_dataurl and foto_dataurl.startswith('data:image'):
                 try:
-                    # Decodifica a imagem
                     header, encoded = foto_dataurl.split(',', 1)
                     decoded_file = base64.b64decode(encoded)
                     file_obj = io.BytesIO(decoded_file)
                     
-                    # Monta o nome do arquivo e envia para o S3
                     bucket = os.getenv('AWS_STORAGE_BUCKET_NAME')
-                    filename = f"media/clientes_fotos/{cliente.pk}/foto.jpg"
+                    filename = f"media/clientes_fotos/{cliente.pk}/foto_{cliente.pk}.jpg"
                     
+                    # Chama sua função de upload
                     url = upload_file_to_s3(file_obj, bucket, filename)
+                    
                     if url:
                         cliente.foto = url
-                        cliente.save()
+                        cliente.save() # Salva o cliente novamente, agora com a URL da foto
+                        messages.success(request, 'Cliente e foto criados com sucesso!')
+                    else:
+                        messages.error(request, "Cliente criado, mas houve uma falha ao enviar a foto para o S3.")
+                
                 except Exception as e:
                     messages.error(request, f"Erro ao processar a foto: {e}")
+            else:
+                messages.success(request, 'Cliente criado com sucesso (sem foto).')
 
-            messages.success(request, 'Cliente criado com sucesso!')
-            # ... (sua lógica de redirect para reserva continua aqui) ...
+            # Lógica de redirecionamento
+            action = request.POST.get('action')
+            if action == 'save_and_reserve':
+                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
+                return redirect(reserva_url)
             return redirect('cliente_list')
     else:
         form = ClienteForm()
@@ -203,27 +218,34 @@ def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':
-        form = ClienteForm(request.POST, instance=cliente) # Não precisa de request.FILES
+        form = ClienteForm(request.POST, instance=cliente)
         if form.is_valid():
-            cliente = form.save()
+            cliente = form.save() # Salva as alterações de texto
             foto_dataurl = request.POST.get('foto_dataurl')
             
-            if foto_dataurl:
-                # (Mesma lógica de decodificar e fazer upload do create_view)
+            # Se uma NOVA foto foi capturada, processa o upload
+            if foto_dataurl and foto_dataurl.startswith('data:image'):
                 try:
                     header, encoded = foto_dataurl.split(',', 1)
                     decoded_file = base64.b64decode(encoded)
                     file_obj = io.BytesIO(decoded_file)
+                    
                     bucket = os.getenv('AWS_STORAGE_BUCKET_NAME')
-                    filename = f"media/clientes_fotos/{cliente.pk}/foto.jpg"
+                    filename = f"media/clientes_fotos/{cliente.pk}/foto_{cliente.pk}.jpg"
+                    
                     url = upload_file_to_s3(file_obj, bucket, filename)
                     if url:
                         cliente.foto = url
-                        cliente.save()
+                        cliente.save() # Salva novamente com a nova URL
+                        messages.success(request, 'Cliente e foto atualizados com sucesso!')
+                    else:
+                        messages.error(request, "Dados do cliente atualizados, mas houve uma falha ao enviar a nova foto.")
+                
                 except Exception as e:
-                    messages.error(request, f"Erro ao processar a foto: {e}")
+                    messages.error(request, f"Erro ao processar a nova foto: {e}")
+            else:
+                messages.success(request, 'Cliente atualizado com sucesso!')
 
-            messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
