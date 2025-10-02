@@ -169,16 +169,20 @@ def cliente_create_view(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-            cliente = form.save()
+            cliente = form.save(commit=False)
             
-            # Pega a URL da foto (que o JS já enviou para o S3)
+            # Pega a URL final da foto que o JavaScript colocou no campo oculto
             foto_url = request.POST.get('foto_dataurl')
             if foto_url:
                 cliente.foto = foto_url
-                cliente.save()
             
+            cliente.save()
             messages.success(request, 'Cliente criado com sucesso!')
-            # ... (sua lógica de redirect para reserva) ...
+
+            action = request.POST.get('action')
+            if action == 'save_and_reserve':
+                reserva_url = f"{reverse('reserva_add')}?cliente_id={cliente.pk}"
+                return redirect(reserva_url)
             return redirect('cliente_list')
     else:
         form = ClienteForm()
@@ -190,24 +194,22 @@ def cliente_create_view(request):
 @permission_required('gestao.change_cliente', raise_exception=True)
 def cliente_update_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    
     if request.method == 'POST':
         form = ClienteForm(request.POST, instance=cliente)
         if form.is_valid():
-            cliente = form.save()
+            cliente = form.save(commit=False)
 
-            # Pega a URL da foto (se uma nova foi enviada)
+            # Pega a URL da nova foto (se houver)
             foto_url = request.POST.get('foto_dataurl')
             if foto_url:
                 cliente.foto = foto_url
-                cliente.save()
 
+            cliente.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
 
-    # ... (seu context para edição continua igual) ...
     context = {
         'form': form,
         'cliente': cliente,
