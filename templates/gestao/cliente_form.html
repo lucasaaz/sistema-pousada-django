@@ -168,12 +168,14 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const snapButton = document.getElementById('snap');
     const fotoPreview = document.getElementById('foto-preview');
     const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
-    const fotoUrlInput = document.getElementById('foto_dataurl'); // Nosso campo oculto
+    const fotoUrlInput = document.getElementById('foto_dataurl');
+    
+    // IMPORTANTE: Definimos a variável 'video' aqui, mas pegamos o elemento DEPOIS
+    let video; 
 
     // Quando o modal for aberto, inicia a câmera
     document.getElementById('cameraModal').addEventListener('shown.bs.modal', async () => {
@@ -204,22 +206,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // O resto do script para capturar e fazer o upload continua o mesmo
     snapButton.addEventListener('click', function () {
-        // ... (código para desenhar a imagem no canvas) ...
+        if (!video) return; // Garante que o vídeo existe
+        
         const context = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Mostra uma preview local temporária
         fotoPreview.src = canvas.toDataURL('image/jpeg');
         fotoPreview.style.display = 'block';
         cameraModal.hide();
 
-        // Converte a imagem do canvas para um 'blob' (formato de arquivo binário)
         canvas.toBlob(function(blob) {
-            
-            // 1. Pede a URL de upload para o nosso servidor Django
             fetch("{% url 'api_gerar_url_upload' %}")
                 .then(response => response.json())
                 .then(data => {
@@ -227,21 +227,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         alert('Erro ao obter permissão de upload: ' + data.error);
                         return;
                     }
-
-                    // 2. Envia o arquivo de imagem DIRETO para a URL da AWS
                     fetch(data.presigned_url, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'image/jpeg'
-                        },
+                        headers: {'Content-Type': 'image/jpeg'},
                         body: blob
                     })
                     .then(response => {
                         if (response.ok) {
-                            // 3. SUCESSO! Guarda a URL final no campo oculto do formulário
                             alert('Foto enviada com sucesso!');
                             fotoUrlInput.value = data.final_url;
-                            fotoPreview.src = data.final_url; // Atualiza a preview com a foto real do S3
+                            fotoPreview.src = data.final_url;
                         } else {
                             alert('Falha no upload para a AWS. Verifique o console.');
                         }
