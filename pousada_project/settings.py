@@ -139,11 +139,12 @@ else:
 
 
 # ==========================================================
-# === CONFIGURAÇÃO DE ENVIO DE E-MAIL (GMAIL)            ===
+# === CONFIGURAÇÃO DE ENVIO DE E-MAIL (SENDGRID)           ===
 # ==========================================================
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST = 'smtp.sendgrid.net'
+EMAIL_HOST_USER = 'apikey' # Esta linha deve ser exatamente 'apikey'
+EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY')
 EMAIL_PORT = 587
-EMAIL_USE_TLS = True # Usa uma conexão segura
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = True
+# Opcional: Define o e-mail padrão que aparecerá como remetente
+DEFAULT_FROM_EMAIL = 'Pousada dos Azevedos <dev.work.az@gmail.com>'
