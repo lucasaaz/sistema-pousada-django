@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function () {
         window.fotoAttachInProgress = true;
         canvas.toBlob(function(blob) {
             try {
-                const file = new File([blob], "foto_cliente.jpg", { type: "image/jpeg" });
+                const file = new File([blob], "foto_cliente.png", { type: "image/png" });
 
                 // Usa a API DataTransfer para adicionar o arquivo ao input
                 const dataTransfer = new DataTransfer();
