@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         alert('Erro ao obter permissão de upload: ' + data.error);
                         return;
                     }
+                    // Envia o arquivo para a AWS
                     fetch(data.presigned_url, {
                         method: 'PUT',
                         headers: {'Content-Type': 'image/jpeg'},
@@ -235,7 +236,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => {
                         if (response.ok) {
                             alert('Foto enviada com sucesso!');
+                            console.log("SUCESSO NO UPLOAD. URL final recebida:", data.final_url);
                             fotoUrlInput.value = data.final_url;
+                            console.log("Valor do campo oculto APÓS a atribuição:", fotoUrlInput.value);
                             fotoPreview.src = data.final_url;
                         } else {
                             alert('Falha no upload para a AWS. Verifique o console.');
