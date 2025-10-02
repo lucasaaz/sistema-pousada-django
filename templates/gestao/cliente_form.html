@@ -73,7 +73,7 @@
 
                 {{ form.foto }}
                 <!-- Fallback: se o browser não anexar o arquivo ao input, enviaremos a dataURL aqui -->
-                <input type="hidden" id="foto-dataurl" name="foto_dataurl" value="">
+                <input type="hidden" name="foto_dataurl" id="foto_dataurl">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#cameraModal">
                     <i class="bi bi-camera-fill me-1"></i> 
                     {% if cliente.foto %}Alterar Foto{% else %}Abrir Câmera{% endif %}
