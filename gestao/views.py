@@ -18,8 +18,9 @@ from django.core.paginator import Paginator
 from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, TruncMonth
 from django.contrib.auth.models import User
 from django.contrib import messages
-import io
-import base64
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 import logging
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_POST
@@ -712,6 +713,51 @@ def upload_debug_view(request):
     except Exception as e:
         logging.exception('upload_debug_view failed: %s', e)
         return HttpResponseBadRequest('failed')
+
+
+# =============================================================================
+# === View para enviar e-mail com o contrato de check-in da reserva         ===
+# =============================================================================   
+@login_required
+def enviar_email_reserva_view(request, pk):
+    # 1. Busca a reserva ou retorna um erro 404 se não existir
+    reserva = get_object_or_404(Reserva, pk=pk)
+    
+    # Pega o e-mail do cliente associado à reserva
+    destinatario_email = reserva.cliente.email
+    
+    # Verifica se o cliente tem um e-mail cadastrado
+    if not destinatario_email:
+        messages.error(request, "Este cliente não possui um e-mail cadastrado.")
+        return redirect('reserva_detail', pk=reserva.pk)
+
+    try:
+        # 2. Renderiza o template do contrato para uma string HTML
+        #    (Assumindo que seu template de contrato está em 'gestao/contrato_checkin.html')
+        contexto_email = {'reserva': reserva}
+        html_content = render_to_string('gestao/contrato_checkin.html', contexto_email)
+        
+        # 3. Define os detalhes e envia o e-mail usando a configuração do Django
+        assunto = f"Confirmação da sua Reserva na Pousada dos Azevedos - Reserva #{reserva.pk}"
+        remetente = settings.EMAIL_HOST_USER
+        
+        send_mail(
+            assunto,
+            'Aqui está o resumo da sua reserva.', # Mensagem de texto simples como alternativa
+            remetente,
+            [destinatario_email],
+            fail_silently=False,
+            html_message=html_content # O conteúdo HTML do e-mail
+        )
+        
+        messages.success(request, f"E-mail enviado com sucesso para {destinatario_email}!")
+
+    except Exception as e:
+        # Captura qualquer erro de conexão ou envio e informa o usuário
+        messages.error(request, f"Ocorreu um erro ao enviar o e-mail: {e}")
+
+    # 4. Redireciona de volta para a página de detalhes da reserva
+    return redirect('reserva_detail', pk=reserva.pk)
 
 # ==============================================================================
 # === View para listar e fazer upload de arquivos relacionados a uma reserva ===

@@ -98,7 +98,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configuração específica para PRODUÇÃO (quando DEBUG=False)
+# ==========================================================
+# ===   Configuração S3 AWS                              ===
+# ==========================================================
 if not DEBUG:
     # Chaves da AWS
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
@@ -134,3 +136,14 @@ else:
     
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# ==========================================================
+# === CONFIGURAÇÃO DE ENVIO DE E-MAIL (GMAIL)            ===
+# ==========================================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True # Usa uma conexão segura
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')

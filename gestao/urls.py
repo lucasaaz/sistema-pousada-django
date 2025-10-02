@@ -121,4 +121,7 @@ urlpatterns = [
 
     # ADICIONE ESTA NOVA ROTA PARA GERAR A URL DE UPLOAD
     path('api/gerar-url-upload/', views.gerar_url_upload_view, name='api_gerar_url_upload'),
+
+    # ADICIONE ESTA NOVA ROTA
+    path('reservas/<int:pk>/enviar-email/', views.enviar_email_reserva_view, name='enviar_email_reserva'),
 ]

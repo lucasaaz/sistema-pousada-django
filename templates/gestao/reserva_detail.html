@@ -12,7 +12,10 @@
             <i class="bi bi-arrow-left"></i> Voltar para Lista
         </a>
         <a href="{% url 'imprimir_contrato_checkin' reserva.pk %}" target="_blank" class="btn btn-sm btn-primary">
-            <i class="bi bi-printer"></i> Imprimir Contrato
+            <i class="bi bi-printer"></i> Imprimir Ficha
+        </a>
+        <a href="{% url 'enviar_email_reserva' reserva.pk %}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-envelope"></i> Enviar por E-mail
         </a>
     </div>
 </div>
