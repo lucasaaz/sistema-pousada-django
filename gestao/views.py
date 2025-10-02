@@ -32,6 +32,7 @@ import os
 logger = logging.getLogger(__name__)
 from .models import Reserva, Acomodacao, Cliente, TipoAcomodacao, ItemEstoque, Frigobar, ItemFrigobar, FormaPagamento, Consumo, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto
 from .forms import *
+from .utils import upload_file_to_s3
 import json
 
 # ==============================================================================
