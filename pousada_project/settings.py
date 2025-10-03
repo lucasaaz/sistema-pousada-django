@@ -142,7 +142,7 @@ else:
 # === CONFIGURAÇÃO DE ENVIO DE E-MAIL (SENDGRID)           ===
 # ==========================================================
 EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_HOST_USER = 'apikey' # Esta linha deve ser exatamente 'apikey'
+EMAIL_HOST_USER = 'apikey' 
 EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
