@@ -2,17 +2,17 @@
 <!-- ARQUIVO: templates/gestao/reserva_confirm_delete.html (NOVO)               -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
-{% block title %}Cancelar Reserva{% endblock %}
+{% block title %}Excluir Reserva{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Cancelar Reserva</h1>
+    <h1 class="h2">Excluir Reserva</h1>
 </div>
-<p>Você tem certeza que deseja cancelar a reserva para o cliente <strong>"{{ reserva.cliente.nome_completo }}"</strong> na acomodação <strong>"{{ reserva.acomodacao }}"</strong>?</p>
+<p>Você tem certeza que deseja EXCLUIR a reserva para o cliente <strong>"{{ reserva.cliente.nome_completo }}"</strong> na acomodação <strong>"{{ reserva.acomodacao }}"</strong>?</p>
 <p class="text-danger">Esta ação não pode ser desfeita.</p>
 <form method="post">
     {% csrf_token %}
     <hr>
-    <button type="submit" class="btn btn-danger">Sim, confirmar cancelamento</button>
+    <button type="submit" class="btn btn-danger">Sim, quero excluir</button>
     <a href="{% url 'reserva_list' %}" class="btn btn-secondary">Voltar</a>
 </form>
 {% endblock %}

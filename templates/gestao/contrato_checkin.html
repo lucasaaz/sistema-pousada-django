@@ -102,6 +102,25 @@ body {
         display: none;
     }
 }
+
+/* Linha específica para documento */
+.doc-row {
+    display: flex;
+    justify-content: space-between; /* distribui igualmente */
+    align-items: flex-start;
+    gap: 15px; /* espaço entre colunas */
+    flex-wrap: nowrap; /* mantém na mesma linha */
+}
+
+.doc-row .field-group {
+    flex: 1; /* todos com largura proporcional */
+}
+
+.doc-row .label {
+    width: auto; /* remove limite fixo */
+    text-align: left;
+    margin-right: 4px;
+}
 </style>
 </head>
 <body onload="window.print()">
@@ -114,7 +133,7 @@ body {
     <div class="row">
         <div class="field-group">
             <span class="label">Acomodação:</span>
-            <span class="value filled-field">{{ acomodacao.numero }}</span>
+            <span class="value filled-field">{{ acomodacao.nome_display }}</span>
         </div>
         <div class="field-group small-text">
             <span class="label">N° Acompanhantes:</span>
@@ -183,18 +202,22 @@ body {
     </div>
 
     <div class="section-title">Documento de Identidade</div>
-    <div class="row">
-        <div class="field-group">
+    <div class="row doc-row">
+        <div class="field-group small-text">
             <span class="label">Documento:</span>
-            <span class="value"></span>
+            <span class="value filled-field"></span>
         </div>
-        <div class="field-group">
+        <div class="field-group small-text">
             <span class="label">Tipo:</span>
-            <span class="value"></span>
+            <span class="value filled-field"></span>
         </div>
         <div class="field-group small-text">
             <span class="label">Orgão Expeditor:</span>
-            <span class="value"></span>
+            <span class="value filled-field"></span>
+        </div>
+        <div class="field-group small-text">
+            <span class="label">Placa Automóvel:</span>
+            <span class="value filled-field">{{ reserva.placa_automovel }}</span>
         </div>
     </div>
 

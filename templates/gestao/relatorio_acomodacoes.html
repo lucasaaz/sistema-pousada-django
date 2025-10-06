@@ -83,7 +83,7 @@
                                         </tbody>
                                     </table>
 
-                                    <h6><i class="bi bi-people-fill me-1"></i>Hóspedes</h6>
+                                    <h6><i class="bi bi-people me-1"></i>Hóspedes</h6>
                                     <table class="table table-sm table-bordered">
                                         <tbody>
                                             <tr>
@@ -107,10 +107,23 @@
                                         </tbody>
                                     </table>
 
+                                    <h6><i class="bi bi-car-front me-1"></i>Automóvel</h6>
+                                    <table class="table table-sm table-bordered">
+                                        <tbody>
+                                            {% if item.reserva.placa_automovel > 0 %}
+                                            <tr> 
+                                                <td>Placa</td></td> 
+                                                <td>class="fw-bold"> {{ item.reserva.placa_automovel }} </td>
+                                            </tr>
+                                            {% endif %}   
+                                            <tr><td colspan="2" class="text-center small">Nenhum automóvel</td></tr>
+                                        </tbody>
+                                    </table>
+
                                     <h6><i class="bi bi-door-closed me-1"></i>Hospedagem</h6>
                                     <table class="table table-sm table-bordered">
                                         <tbody>
-                                            <tr><td>{{ item.reserva.acomodacao }} - {{ item.reserva.num_dias }} dia(s)</td><td>R$ {{ item.reserva.valor_total_diarias|floatformat:2 }}</td></tr>
+                                            <tr><td>{{ item.reserva.acomodacao.nome_display }} - {{ item.reserva.num_dias }} dia(s)</td><td>R$ {{ item.reserva.valor_total_diarias|floatformat:2 }}</td></tr>
                                         </tbody>
                                     </table>
 
@@ -162,16 +175,30 @@
 
 {% block scripts %}
 {{ block.super }}
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-    .chart-container { position: relative; height: 100%; width: 100%; }
+    .chart-container { position: relative; height: 100%; width: 100%; min-height: 350px; }
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Dados para o gráfico injetados pelo Django
     const rankingData = JSON.parse('{{ ranking_data_json|safe }}');
 
     if (rankingData && rankingData.labels.length > 0) {
+        // --- MELHORIA 1: CORES DINÂMICAS ---
+        const colors = [
+            'rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)',
+            'rgba(75, 192, 192, 0.7)', 'rgba(255, 206, 86, 0.7)',
+            'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)',
+            'rgba(99, 255, 132, 0.7)', 'rgba(201, 203, 207, 0.7)',
+            'rgba(54, 162, 100, 0.7)', 'rgba(255, 99, 50, 0.7)'
+        ];
+
+        // Registra o plugin de rótulos de dados
+        Chart.register(ChartDataLabels);
+
         const ctx = document.getElementById('rankingChart').getContext('2d');
         new Chart(ctx, {
             type: 'bar',
@@ -180,25 +207,57 @@ document.addEventListener('DOMContentLoaded', function () {
                 datasets: [{
                     label: 'Total de Reservas',
                     data: rankingData.data,
-                    backgroundColor: 'rgba(0, 123, 255, 0.7)',
-                    borderColor: 'rgba(0, 123, 255, 1)',
+                    backgroundColor: colors, // Usa o array de cores
+                    borderColor: colors.map(color => color.replace('0.7', '1')), // Bordas mais sólidas
                     borderWidth: 1
                 }]
             },
             options: {
-                indexAxis: 'y', // Faz o gráfico de barras ser horizontal
+                indexAxis: 'y', // Mantém o gráfico de barras horizontal
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false // Oculta a legenda, pois o título do card já é suficiente
+                        display: false // Legenda continua oculta
+                    },
+                    // --- MELHORIA 2: RÓTULOS DE DADOS NAS BARRAS ---
+                    datalabels: {
+                        color: '#fff',
+                        anchor: 'end',
+                        align: 'start',
+                        offset: -30, // Posição dentro da barra
+                        font: {
+                            weight: 'bold'
+                        },
+                        formatter: (value) => {
+                            return value > 0 ? value : ''; // Só mostra se o valor for maior que 0
+                        }
+                    },
+                    // --- MELHORIA 3: TOOLTIPS MELHORADOS ---
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.x !== null) {
+                                    label += context.parsed.x;
+                                }
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {
                     x: {
                         beginAtZero: true,
                         ticks: {
-                            precision: 0 // Garante que o eixo X não tenha casas decimais
+                            precision: 0
+                        },
+                        title: {
+                            display: true,
+                            text: 'Quantidade de Reservas'
                         }
                     }
                 }

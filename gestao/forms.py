@@ -76,10 +76,11 @@ class ReservaForm(forms.ModelForm):
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['cliente_busca', 'cliente', 'acomodacao', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
+        fields = ['cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
         widgets = {
             'cliente': forms.HiddenInput(),
             'acomodacao': forms.Select(attrs={'class': 'form-select'}),
+            'placa_automovel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'AAA-1234'}),
             # Adiciona um seletor de data nativo do navegador para uma melhor experiência
             'data_checkin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'data_checkout': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),

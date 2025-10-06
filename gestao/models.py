@@ -60,8 +60,16 @@ class Acomodacao(models.Model):
     qtd_camas = models.PositiveIntegerField(default=1, help_text="Quantidade de camas no quarto.") 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disponivel')
 
+    @property
+    def nome_display(self):
+        # Verifica se o primeiro caractere do número é '0'
+        if self.numero.startswith('0'):
+            return f"Quarto {self.numero}"
+        else:
+            return f"Chalé {self.numero}"
+
     def __str__(self):
-        return f"{self.tipo.nome} - Nº {self.numero}"
+        return self.nome_display
 
 # Módulo: Estacionamento
 class VagaEstacionamento(models.Model):
@@ -113,6 +121,9 @@ class Reserva(models.Model):
     num_adultos = models.PositiveIntegerField("N° Adultos", default=1, help_text="N° de adultos") # Atualizado 18.09.25
     num_criancas_5 = models.PositiveIntegerField("N° Crianças até 5 anos", default=0, help_text="Crianças até 5 anos") # Atualizado 18.09.25
     num_criancas_12 = models.PositiveIntegerField("N° Crianças de 6 a 12 anos", default=0, help_text="Crianças de 6 a 12 anos") # Atualizado 18.09.25
+
+    # ADICIONE ESTE NOVO CAMPO
+    placa_automovel = models.CharField(max_length=15, null=True, blank=True, verbose_name="Placa do Automóvel") # Atualizado 06.10.25
     
     # Valores calculados no checkout
     valor_total_diarias = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)

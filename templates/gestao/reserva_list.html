@@ -74,7 +74,7 @@
                                     {% if current_ordering == '-data_checkout' %}<i class="bi bi-arrow-up"></i>{% endif %}
                                 </a>
                             </th>
-                            <th scope="col">Valor Total</th> <!-- Atualizado --> 
+                            <th scope="col">Valor Total</th> 
                             <th scope="col">Status</th>
                             <th scope="col" class="text-end">Ações</th>
                         </tr>
@@ -86,13 +86,7 @@
                                 <div class="fw-bold">{{ reserva.cliente.nome_completo }}</div>
                                 <div class="small text-muted">{{ reserva.cliente.cpf }}</div>
                             </td>
-                            <td>
-                            {% if reserva.acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
-                                Quarto {{ reserva.acomodacao.numero }}
-                            {% else %}
-                                Chalé {{ reserva.acomodacao.numero }}
-                            {% endif %}
-                            </td>
+                            <td> {{ reserva.acomodacao.nome_display }}</td>
                             <td>{{ reserva.data_checkin|date:"d/m/Y" }}</td>
                             <td>{{ reserva.data_checkout|date:"d/m/Y" }}</td>
                             <td>R$ {{ reserva.valor_total_diarias|floatformat:2 }}</td>
@@ -125,10 +119,10 @@
                                 title="Arquivos da Reserva">
                                     <i class="bi bi-file-earmark-arrow-up"></i>
                                 </a>
-                                <a href="{% url 'reserva_edit' reserva.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar">
+                                <a href="{% url 'reserva_edit' reserva.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar Reserva">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="{% url 'reserva_delete' reserva.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Cancelar">
+                                <a href="{% url 'reserva_delete' reserva.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Excluir Reserva">
                                     <i class="bi bi-trash"></i>
                                 </a>
                             </td>
