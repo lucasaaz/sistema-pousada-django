@@ -139,12 +139,16 @@ else:
 
 
 # ==========================================================
-# === CONFIGURAÇÃO DE ENVIO DE E-MAIL (SENDGRID)           ===
+# === CONFIGURAÇÃO DE ENVIO DE E-MAIL (SENDGRID VIA API)   ===
 # ==========================================================
-EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_HOST_USER = 'apikey' 
-EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY')
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+# Altere o EMAIL_BACKEND para o do sendgrid
+EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+
+# A chave de API que você já configurou
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+
+# Opcional, mas recomendado: evita que o site trave se o envio falhar
+SENDGRID_SANDBOX_MODE_IN_DEBUG = True 
+
 # Opcional: Define o e-mail padrão que aparecerá como remetente
 DEFAULT_FROM_EMAIL = 'Pousada dos Azevedos <dev.work.az@gmail.com>'
