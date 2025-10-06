@@ -35,7 +35,26 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-md-6 mb-4">
+            <div class="col-lg-2 col-md-6 mb-4">
+                    <div class="card shadow h-100 py-2 card-indicator card-indicator-warning">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <a class="nav-link text-xs fw-bold text-warning text-uppercase mb-1" href="{% url 'reserva_list' %}?status=pre_reserva">
+                                        Pré-Reservas
+                                    </a>
+                                    <div class="h5 mb-0 fw-bold text-gray-800">{{ pre_reservas }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="{% url 'reserva_list' %}?status=pre_reserva">
+                                        <i class="bi bi-clock-history fs-2 text-gray-300"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <div class="col-xl-2 col-md-6 mb-4">
                 <div class="card shadow h-100 py-2 card-indicator card-indicator-success">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
@@ -56,7 +75,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-md-6 mb-4">
+            <div class="col-xl-2 col-md-6 mb-4">
                 <div class="card shadow h-100 py-2 card-indicator card-indicator-info">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
@@ -78,19 +97,19 @@
                 </div>
             </div>
             <div class="col-xl-3 col-md-6 mb-4">
-                <div class="card shadow h-100 py-2 card-indicator card-indicator-warning">
+                <div class="card shadow h-100 py-2 card-indicator border-danger">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div>
-                                    <a class="nav-link text-xs fw-bold text-warning text-uppercase mb-1" href="{% url 'reserva_list' %}?status=checkout">
+                                    <a class="nav-link text-xs fw-bold text-danger text-uppercase mb-1" href="{% url 'reserva_list' %}?status=checkout">
                                         Check-outs
                                     </a>
                                 </div>
                                 <div class="h5 mb-0 fw-bold text-gray-800">{{ reservas_checkout }}</div>
                             </div>
                             <div class="col-auto">
-                                <a class="nav-link text-xs fw-bold text-warning text-uppercase mb-1" href="{% url 'reserva_list' %}?status=checkout">
+                                <a class="nav-link text-xs fw-bold text-danger text-uppercase mb-1" href="{% url 'reserva_list' %}?status=checkout">
                                     <i class="bi bi-box-arrow-right fs-2 text-gray-300"></i>
                                 </a>
                             </div>
@@ -130,7 +149,13 @@
                                 <div class="card h-100 mudar-cor">
                                     <div class="card-body mudar-cor">
                                         <div class="d-flex justify-content-between">
-                                            <h6 class="card-title fw-bold">Quarto {{ acomodacao.numero }}</h6>
+                                            <h6 class="card-title fw-bold">
+                                                {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Quarto {{ acomodacao.numero }} </a>
+                                                {% else %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Chalé {{ acomodacao.numero }} </a>
+                                                {% endif %}
+                                            </h6>
                                             {% if acomodacao.status == 'disponivel' %}<span class="badge bg-success-soft text-success">Disponível</span>
                                             {% elif acomodacao.status == 'ocupado' %}<span class="badge bg-danger-soft text-danger">Ocupado</span>
                                             {% elif acomodacao.status == 'limpeza' %}<span class="badge bg-primary-soft text-primary">Limpeza</span>
@@ -153,7 +178,13 @@
                                 <div class="card h-100 mudar-cor">
                                     <div class="card-body mudar-cor">
                                         <div class="d-flex justify-content-between">
-                                            <h6 class="card-title fw-bold">Quarto {{ acomodacao.numero }}</h6>
+                                            <h6 class="card-title fw-bold">
+                                                {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Quarto {{ acomodacao.numero }} </a>
+                                                {% else %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Chalé {{ acomodacao.numero }} </a>
+                                                {% endif %}
+                                            </h6>
                                             <span class="badge bg-success-soft text-success">Disponível</span>
                                         </div>
                                         <p class="card-text text-muted small">{{ acomodacao.tipo.nome }}</p>
@@ -172,7 +203,13 @@
                                 <div class="card h-100 mudar-cor">
                                     <div class="card-body mudar-cor">
                                         <div class="d-flex justify-content-between">
-                                            <h6 class="card-title fw-bold">Quarto {{ acomodacao.numero }}</h6>
+                                            <h6 class="card-title fw-bold">
+                                                {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Quarto {{ acomodacao.numero }} </a>
+                                                {% else %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Chalé {{ acomodacao.numero }} </a>
+                                                {% endif %}
+                                            </h6>
                                             <span class="badge bg-danger-soft text-danger">Ocupado</span>
                                         </div>
                                         <p class="card-text text-muted small">{{ acomodacao.tipo.nome }}</p>
@@ -191,7 +228,13 @@
                                 <div class="card h-100 mudar-cor">
                                     <div class="card-body mudar-cor">
                                         <div class="d-flex justify-content-between">
-                                            <h6 class="card-title fw-bold">Quarto {{ acomodacao.numero }}</h6>
+                                            <h6 class="card-title fw-bold">
+                                                {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Quarto {{ acomodacao.numero }} </a>
+                                                {% else %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Chalé {{ acomodacao.numero }} </a>
+                                                {% endif %}
+                                            </h6>
                                             <span class="badge bg-primary-soft text-primary">Limpeza</span>
                                         </div>
                                         <p class="card-text text-muted small">{{ acomodacao.tipo.nome }}</p>
@@ -210,7 +253,13 @@
                                 <div class="card h-100 mudar-cor">
                                     <div class="card-body mudar-cor">
                                         <div class="d-flex justify-content-between">
-                                            <h6 class="card-title fw-bold">Quarto {{ acomodacao.numero }}</h6>
+                                            <h6 class="card-title fw-bold">
+                                                {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Quarto {{ acomodacao.numero }} </a>
+                                                {% else %}
+                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Chalé {{ acomodacao.numero }} </a>
+                                                {% endif %}
+                                            </h6>
                                             <span class="badge bg-secondary-soft text-secondary">Manutenção</span>
                                         </div>
                                         <p class="card-text text-muted small">{{ acomodacao.tipo.nome }}</p>
@@ -255,7 +304,7 @@
                             {% for reserva in reservas_ativas_list %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-bold">{{ reserva.cliente.nome_completo }}</div>
+                                    <div class="fw-bold"><a href="{% url 'reserva_detail' reserva.pk %}" class="nav-link"> {{ reserva.cliente.nome_completo }} </a></div>
                                     <small class="text-muted">Quarto {{ reserva.acomodacao.numero }}</small>
                                 </div>
                                 <small>Até {{ reserva.data_checkout|date:"d/m" }}</small>
@@ -267,7 +316,7 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="card shadow">
+                <div class="card shadow mb-4">
                     <div class="card-header py-3">
                         <h6 class="m-0 fw-bold text-primary">Reservas</h6>
                     </div>
@@ -277,7 +326,29 @@
                             {% for reserva in proximas_reservas %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-bold">{{ reserva.cliente.nome_completo }}</div>
+                                    <div class="fw-bold"><a href="{% url 'reserva_detail' reserva.pk %}" class="nav-link"> {{ reserva.cliente.nome_completo }} </a></div>
+                                    <small class="text-muted">Quarto {{ reserva.acomodacao.numero }} - Sinal: R$ {{ reserva.total_pago|floatformat:2 }}</small>
+                                </div>
+                                <span class="badge bg-primary-soft text-primary">Em {{ reserva.data_checkin|date:"d/m/Y" }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted text-center mt-3">Nenhuma reserva futura agendada.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 fw-bold text-primary">Pré-Reservas</h6>
+                    </div>
+                    <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                        {% if proximas_prereservas %}
+                        <ul class="list-group list-group-flush">
+                            {% for reserva in proximas_prereservas %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold"><a href="{% url 'reserva_detail' reserva.pk %}" class="nav-link"> {{ reserva.cliente.nome_completo }} </a></div>
                                     <small class="text-muted">Quarto {{ reserva.acomodacao.numero }}</small>
                                 </div>
                                 <span class="badge bg-primary-soft text-primary">Em {{ reserva.data_checkin|date:"d/m/Y" }}</span>
@@ -400,10 +471,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cores modernas e consistentes com o tema
     const backgroundColors = [
         '#0dcaf0', // Azul (Check-in)
-        '#ffae00', // Laranja (Check-out)
-        '#28a745', // Verde (Confirmada)
         '#dc3545', // Vermelho (Cancelada)
-        '#6c757d', // Cinza (Pendente)
+        '#28a745', // Verde (Confirmada)
+        '#ffae00', // Laranja (Check-out)
+        '#003366', // Laranja (Check-out)
     ];
 
     new Chart(ctx, {

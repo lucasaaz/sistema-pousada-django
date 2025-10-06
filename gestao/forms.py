@@ -4,6 +4,7 @@
 # ==============================================================================
 from django import forms
 from django.forms import ModelForm
+from django_select2.forms import Select2Widget
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
 from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto, ArquivoReserva
@@ -13,7 +14,7 @@ class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         # Campos que aparecerão no formulário
-        fields = ['nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'] # Atualizado 18.09.25
+        fields = ['nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado','foto'] # Atualizado 24.09.25
         # Adiciona classes do Bootstrap para estilizar os campos
         widgets = {
             'nome_completo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome completo do cliente'}),
@@ -28,6 +29,7 @@ class ClienteForm(forms.ModelForm):
             'bairro': forms.TextInput(attrs={'class': 'form-control', 'id': 'bairro-input'}),
             'cidade': forms.TextInput(attrs={'class': 'form-control', 'id': 'cidade-input'}),
             'estado': forms.TextInput(attrs={'class': 'form-control', 'id': 'estado-input'}),
+            'foto': forms.FileInput(attrs={'class': 'd-none'}),
         }
 
 # Formulario para Tipos de Acomodação
@@ -59,12 +61,24 @@ class AcomodacaoForm(forms.ModelForm):
 
 # Formulario para Reservas
 class ReservaForm(forms.ModelForm):
+
+    # Crie um campo de texto normal que será o campo de busca visível
+    cliente_busca = forms.CharField(
+        label='Cliente',
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Digite o nome ou CPF do cliente para buscar...',
+            'autocomplete': 'off' # Impede o autocomplete padrão do navegador
+        })
+    )
+    
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['cliente', 'acomodacao', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
+        fields = ['cliente_busca', 'cliente', 'acomodacao', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'cliente': forms.HiddenInput(),
             'acomodacao': forms.Select(attrs={'class': 'form-select'}),
             # Adiciona um seletor de data nativo do navegador para uma melhor experiência
             'data_checkin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -149,7 +163,7 @@ class PagamentoForm(forms.ModelForm):
         widgets = {
             'forma_pagamento': forms.Select(attrs={'class': 'form-select'}),
             'valor': forms.NumberInput(attrs={'class': 'form-control'}),
-            'data_pagamento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_pagamento': forms.DateInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
         }
 
 # Formulários para Forma de Pagamentos

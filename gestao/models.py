@@ -31,6 +31,7 @@ class Cliente(models.Model):
     bairro = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
     cidade = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
     estado = models.CharField(max_length=2, null=True, blank=True, verbose_name="UF") # Atualizado 18.09.25
+    foto = models.ImageField(upload_to='clientes_fotos/', null=True, blank=True, verbose_name="Foto do Cliente") # Atualizado 24.09.25
 
 
     def __str__(self):
@@ -97,6 +98,7 @@ class ItemFrigobar(models.Model):
 # Módulo: Reservas
 class Reserva(models.Model):
     STATUS_CHOICES = (
+        ('pre_reserva', 'Pré-reserva'),
         ('confirmada', 'Confirmada'),
         ('checkin', 'Check-in Realizado'),
         ('checkout', 'Check-out Realizado'),
@@ -107,7 +109,7 @@ class Reserva(models.Model):
     data_checkin = models.DateField()
     data_checkout = models.DateField()
     data_reserva = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmada')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pre_reserva')
     num_adultos = models.PositiveIntegerField("N° Adultos", default=1, help_text="N° de adultos") # Atualizado 18.09.25
     num_criancas_5 = models.PositiveIntegerField("N° Crianças até 5 anos", default=0, help_text="Crianças até 5 anos") # Atualizado 18.09.25
     num_criancas_12 = models.PositiveIntegerField("N° Crianças de 6 a 12 anos", default=0, help_text="Crianças de 6 a 12 anos") # Atualizado 18.09.25
