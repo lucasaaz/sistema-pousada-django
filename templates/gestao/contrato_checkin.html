@@ -114,7 +114,11 @@ body {
     <div class="row">
         <div class="field-group">
             <span class="label">Acomodação:</span>
-            <span class="value filled-field">{{ acomodacao.numero }}</span>
+            {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
+                <span class="value filled-field"> Quarto {{ acomodacao.numero }}</span>
+            {% else %}
+                <span class="value filled-field"> Chalé {{ acomodacao.numero }}</span>
+            {% endif %}
         </div>
         <div class="field-group small-text">
             <span class="label">N° Hóspedes:</span>

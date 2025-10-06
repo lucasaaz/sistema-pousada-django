@@ -728,12 +728,15 @@ def enviar_email_reserva_view(request, pk):
         return redirect('reserva_detail', pk=reserva.pk)
 
     try:
-        contexto_email = {'reserva': reserva}
+        contexto_email = {
+        'reserva': reserva,
+        'cliente': reserva.cliente,
+        'acomodacao': reserva.acomodacao,
+    }
         html_content = render_to_string('gestao/contrato_checkin.html', contexto_email)
         
         assunto = f"Confirmação da sua Reserva na Pousada dos Azevedos - Reserva #{reserva.pk}"
         
-        # --- CORREÇÃO APLICADA AQUI ---
         # Usamos o DEFAULT_FROM_EMAIL que está no settings.py
         remetente = settings.DEFAULT_FROM_EMAIL
         
