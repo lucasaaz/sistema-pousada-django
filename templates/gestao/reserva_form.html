@@ -31,10 +31,17 @@
                             {{ form.cliente_busca.errors }}
                             {{ form.cliente.errors }}
                         </div>
-                        <div class="col-md-12">
-                            <label for="{{ form.acomodacao.id_for_label }}" class="form-label">{{ form.acomodacao.label }}</label>
-                            {{ form.acomodacao }}
-                            {{ form.acomodacao.errors }}
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label for="{{ form.acomodacao.id_for_label }}" class="form-label">{{ form.acomodacao.label }}</label>
+                                {{ form.acomodacao }}
+                                {{ form.acomodacao.errors }}
+                            </div>
+                            <div class="col-md-5">
+                                <label for="{{ form.placa_automovel.id_for_label }}" class="form-label">{{ form.placa_automovel.label }}</label>
+                                {{ form.placa_automovel }}
+                                {{ form.placa_automovel.errors }}
+                            </div>
                         </div>
                     </div>
                     <div class="col-5 d-flex justify-content-start">

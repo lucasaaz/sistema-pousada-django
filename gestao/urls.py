@@ -46,7 +46,8 @@ urlpatterns = [
     path('reservas/cancelar/<int:pk>/', views.ReservaDeleteView.as_view(), name='reserva_delete'),
     path('select2/', include('django_select2.urls')),
     path('api/buscar-clientes/', views.buscar_clientes_view, name='api_buscar_clientes'),
- 
+    path('reservas/<int:pk>/cancelar-status/', views.cancelar_reserva_status_view, name='cancelar_reserva_status'), # ROTA PARA A AÇÃO DE CANCELAR O STATUS
+
     # URLs para as ações de check-in e check-out
     path('reservas/checkin/<int:pk>/', views.fazer_checkin, name='fazer_checkin'),
     path('reservas/checkout/<int:pk>/', views.fazer_checkout, name='fazer_checkout'),

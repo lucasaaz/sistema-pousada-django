@@ -16,6 +16,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.db.models import F, Count, Q, Sum, DecimalField, Value
 from django.core.paginator import Paginator
 from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, TruncMonth
+from django.db import models
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.core.mail import send_mail
@@ -587,6 +588,21 @@ class ReservaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
     success_url = reverse_lazy('reserva_list')
     context_object_name = 'reserva'
 
+@login_required
+def cancelar_reserva_status_view(request, pk):
+    # Busca a reserva ou retorna um erro 404
+    reserva = get_object_or_404(Reserva, pk=pk)
+    
+    # Altera o status para 'cancelada'
+    reserva.status = 'cancelada'
+    reserva.save()
+    
+    # Adiciona uma mensagem de sucesso para o usuário
+    messages.success(request, f"A Reserva #{reserva.pk} foi cancelada com sucesso.")
+    
+    # Redireciona de volta para a lista de reservas
+    return redirect('reserva_list')
+
 # Ações de Check-in e Check-out 
 @login_required
 def fazer_checkin(request, pk):
@@ -1137,81 +1153,80 @@ def configuracao_hotel_view(request):
 # ==========================================================
 @login_required
 def relatorio_acomodacoes_view(request):
-    # --- 1. Lógica para o Ranking de Acomodações (Gráfico) ---
-    
-    # Filtra apenas por reservas concluídas ('checkout') para um ranking mais preciso
-    acomodacoes_ranking = Reserva.objects.filter(status='checkout') \
-        .values('acomodacao__numero') \
-        .annotate(total_reservas=Count('id')) \
-        .order_by('-total_reservas')[:10]  # Limita aos 10 primeiros
+    # --- 1. LÓGICA CORRIGIDA PARA O RANKING (GRÁFICO) ---
+    # Busca a partir do modelo Acomodacao e conta as reservas com status 'checkout'
+    acomodacoes_ranking = Acomodacao.objects.annotate(
+        total_reservas=Count('reservas', filter=models.Q(reservas__status='checkout'))
+    ).filter(total_reservas__gt=0).order_by('-total_reservas')[:10]
 
-    # Prepara os dados no formato que o Chart.js espera
-    ranking_labels = [f"Quarto {item['acomodacao__numero']}" for item in acomodacoes_ranking]
-    ranking_data = [item['total_reservas'] for item in acomodacoes_ranking]
+    # Usa a propriedade 'nome_display' que já tem a lógica de "Quarto" vs "Chalé"
+    ranking_labels = [ac.nome_display for ac in acomodacoes_ranking]
+    ranking_data = [ac.total_reservas for ac in acomodacoes_ranking]
     
-    # Converte os dados para uma string JSON segura para ser usada no template
     ranking_data_json = json.dumps({
         'labels': ranking_labels,
         'data': ranking_data,
     })
 
-    # --- 2. Lógica para o Extrato de Pagamentos ---
-
-    # Query base: todas as reservas com check-out, ordenadas pela data mais recente
-    reservas_inicio = Reserva.objects.filter(status='checkout').order_by('-data_checkout')
+    # --- 2. LÓGICA OTIMIZADA PARA O EXTRATO DE PAGAMENTOS ---
+    # Query base que será filtrada
+    reservas_list = Reserva.objects.filter(status='checkout').select_related(
+        'cliente', 'acomodacao'
+    ).prefetch_related(
+        'pagamentos__forma_pagamento', 'consumos__item'
+    ).order_by('-data_checkout')
 
     # Pega os parâmetros de filtro da URL
     query = request.GET.get('q')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
 
-    # Aplica filtro de busca textual
+    # Aplica filtros diretamente no QuerySet (mais eficiente)
     if query:
-        reservas_inicio = reservas_inicio.filter(
-            Q(cliente__nome_completo__icontains=query) | Q(cliente__cpf__icontains=query) | Q(acomodacao__numero__icontains=query)
+        reservas_list = reservas_list.filter(
+            Q(cliente__nome_completo__icontains=query) | 
+            Q(cliente__cpf__icontains=query) | 
+            Q(acomodacao__numero__icontains=query)
         )
         
-    # Filtro de período (check-out entre as datas)
     if start_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            reservas_inicio = reservas_inicio.filter(data_checkin__gte=start_date)
+            # O filtro do extrato é sobre a data de check-out
+            reservas_list = reservas_list.filter(data_checkout__gte=start_date)
         except (ValueError, TypeError):
-            pass  # Ignora data inválida
+            pass
         
     if end_date_str:
         try:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            reservas_inicio = reservas_inicio.filter(data_checkin__lte=end_date)
+            reservas_list = reservas_list.filter(data_checkout__lte=end_date)
         except (ValueError, TypeError):
-            pass  # Ignora data inválida
+            pass
 
-    # Monta a estrutura de dados completa para o extrato
-    relatorio_pagamentos = []
-    for reserva in reservas_inicio:
-        pagamentos = reserva.pagamentos.all()
-        consumos = reserva.consumos.all()
-        total_pago = sum(p.valor for p in pagamentos)
-        
-        relatorio_pagamentos.append({
-            'reserva': reserva,
-            'pagamentos': pagamentos,
-            'consumos': consumos,
-            'total_pago': total_pago,
-        })
-        
-    # --- 3. Lógica de Paginação ---
-
-    # Pagina a lista de extratos já montada
-    paginator = Paginator(relatorio_pagamentos, 5)  # Mostra 5 extratos por página
+    # --- 3. MONTAGEM OTIMIZADA DO RELATÓRIO E PAGINAÇÃO ---
+    # Agora paginamos o queryset, que é muito mais rápido
+    paginator = Paginator(reservas_list, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # --- 4. Contexto para o Template ---
-
+    # Monta a estrutura de dados apenas para os itens da página atual
+    relatorio_pagamentos = []
+    for reserva in page_obj.object_list:
+        total_pago = sum(p.valor for p in reserva.pagamentos.all())
+        relatorio_pagamentos.append({
+            'reserva': reserva,
+            'pagamentos': reserva.pagamentos.all(),
+            'consumos': reserva.consumos.all(),
+            'total_pago': total_pago,
+        })
+    
+    # --- 4. CONTEXTO PARA O TEMPLATE ---
     context = {
-        'ranking_data_json': ranking_data_json, # Dados do gráfico
-        'page_obj': page_obj,                   # Dados paginados para o extrato
+        'ranking_data_json': ranking_data_json,
+        'page_obj': relatorio_pagamentos, # Enviamos a lista já processada
+        'paginator': paginator, # Informações de paginação
+        'object_list': page_obj.object_list # Para compatibilidade com a paginação
     }
     return render(request, 'gestao/relatorio_acomodacoes.html', context)
 
