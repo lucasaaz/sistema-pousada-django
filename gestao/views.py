@@ -8,6 +8,7 @@ from django.urls import reverse_lazy
 from django.urls import reverse
 from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib.auth.decorators import login_required, permission_required
 from django.utils import timezone
 from datetime import datetime, timedelta, date
@@ -164,6 +165,7 @@ def cliente_create_view(request):
                 return redirect(reserva_url)
             
             # Ação padrão: se o botão for "save" ou se 'action' não for definido
+            messages.success(request, 'Cliente criadoo com sucesso!')
             return redirect('cliente_list')
     else:
         form = ClienteForm()
@@ -181,8 +183,9 @@ def cliente_update_view(request, pk):
         # Precisamos incluir request.FILES para lidar com o upload da foto
         form = ClienteForm(request.POST, request.FILES, instance=cliente)
         if form.is_valid():
+            nome_cliente = cliente.nome_completo
             form.save()
-            messages.success(request, 'Cliente atualizado com sucesso!')
+            messages.success(request, f"Cliente '{nome_cliente}' foi atualizado com sucesso!")
             return redirect('cliente_list')
     else:
         form = ClienteForm(instance=cliente)
@@ -207,7 +210,9 @@ def cliente_update_view(request, pk):
 def cliente_delete_view(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     if request.method == 'POST':
+        nome_cliente = cliente.nome_completo
         cliente.delete()
+        messages.success(request, f"Cliente '{nome_cliente}' foi deletado com sucesso!")
         return redirect('cliente_list')
     context = {'cliente': cliente}
     return render(request, 'gestao/cliente_confirm_delete.html', context)
@@ -263,7 +268,7 @@ class TipoAcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
         return queryset
 
 # ... (Create, Update, Delete para TipoAcomodacao continuam iguais)
-class TipoAcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class TipoAcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_tipoacomodacao'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -271,8 +276,9 @@ class TipoAcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, Crea
     form_class = TipoAcomodacaoForm
     template_name = 'gestao/tipo_acomodacao_form.html'
     success_url = reverse_lazy('tipo_acomodacao_list')
+    success_message = "Tipo de Acomodação '%(nome)s' criado com sucesso!"
 
-class TipoAcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class TipoAcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_tipoacomodacao'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -280,6 +286,7 @@ class TipoAcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Upda
     form_class = TipoAcomodacaoForm
     template_name = 'gestao/tipo_acomodacao_form.html'
     success_url = reverse_lazy('tipo_acomodacao_list')
+    success_message = "Tipo de Acomodação '%(nome)s' atualizado com sucesso!"
 
 class TipoAcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_tipoacomodacao'
@@ -289,6 +296,11 @@ class TipoAcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
     template_name = 'gestao/tipo_acomodacao_confirm_delete.html'
     success_url = reverse_lazy('tipo_acomodacao_list')
     context_object_name = 'tipo'
+
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Tipo de Acomodação '{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)
 
 # ==============================================================================
 # === VIEWS PARA ACOMODAÇÃO                                                  ===
@@ -330,7 +342,7 @@ class AcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         return context
 
 # ... (Create, Update, Delete para Acomodacao continuam iguais)
-class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_acomodacao'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -338,8 +350,9 @@ class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
     form_class = AcomodacaoForm
     template_name = 'gestao/acomodacao_form.html'
     success_url = reverse_lazy('acomodacao_list')
+    success_message = "Acomodação Nº %(numero)s criada com sucesso!"
 
-class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_acomodacao'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -347,6 +360,7 @@ class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
     form_class = AcomodacaoForm
     template_name = 'gestao/acomodacao_form.html'
     success_url = reverse_lazy('acomodacao_list')
+    success_message = "Acomodação Nº %(numero)s atualizada com sucesso!"
 
 class AcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_acomodacao'
@@ -356,6 +370,11 @@ class AcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
     template_name = 'gestao/acomodacao_confirm_delete.html'
     success_url = reverse_lazy('acomodacao_list')
     context_object_name = 'acomodacao'
+    
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Acomodação '{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)
 
 # ==============================================================================
 # === VIEWS PARA RESERVAS                                                    ===
@@ -441,7 +460,7 @@ class ReservaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
     template_name = 'gestao/reserva_detail.html'
     context_object_name = 'reserva'
 
-class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_reserva'
     raise_exception = True
 
@@ -449,6 +468,7 @@ class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
     form_class = ReservaForm
     template_name = 'gestao/reserva_form.html'
     success_url = reverse_lazy('reserva_list')
+    success_message = "Reserva para o cliente '%(cliente)s' criada com sucesso!"
 
     def dispatch(self, request, *args, **kwargs):
         """
@@ -484,7 +504,7 @@ class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
             context['cliente_foto_url'] = self.cliente_pre_selecionado.foto.url
         return context
 
-class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_reserva'
     raise_exception = True
 
@@ -492,6 +512,7 @@ class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
     form_class = ReservaForm
     template_name = 'gestao/reserva_form.html'
     success_url = reverse_lazy('reserva_list')
+    success_message = "Reserva para o cliente '%(cliente)s' atualizada com sucesso!"
 
     def get_form(self, form_class=None):
         # Primeiro, deixamos o Django criar o formulário normalmente
@@ -535,6 +556,11 @@ class ReservaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
     success_url = reverse_lazy('reserva_list')
     context_object_name = 'reserva'
 
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"A reserva '{self.object.pk}' do cliente '{self.object.cliente}' foi excluída com sucesso.")
+        return super().form_valid(form)
+
 @login_required
 def cancelar_reserva_status_view(request, pk):
     # Busca a reserva ou retorna um erro 404
@@ -545,7 +571,7 @@ def cancelar_reserva_status_view(request, pk):
     reserva.save()
     
     # Adiciona uma mensagem de sucesso para o usuário
-    messages.success(request, f"A Reserva #{reserva.pk} foi cancelada com sucesso.")
+    messages.success(request, f"A Reserva {reserva.pk} foi cancelada com sucesso.")
     
     # Redireciona de volta para a lista de reservas
     return redirect('reserva_list')
@@ -684,15 +710,16 @@ class ItemEstoqueListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
             queryset = queryset.filter(nome__icontains=query)
         return queryset
 
-class ItemEstoqueCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class ItemEstoqueCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_itemestoque'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     model = ItemEstoque
     form_class = ItemEstoqueForm
     template_name = 'gestao/item_estoque_form.html'
     success_url = reverse_lazy('item_estoque_list')
+    success_message = "Item de estoque '%(nome)s' criado com sucesso!"
 
-class ItemEstoqueUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class ItemEstoqueUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_itemestoque'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -700,6 +727,7 @@ class ItemEstoqueUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateV
     form_class = ItemEstoqueForm
     template_name = 'gestao/item_estoque_form.html'
     success_url = reverse_lazy('item_estoque_list')
+    success_message = "Item de estoque '%(nome)s' atualizado com sucesso!"
 
 class ItemEstoqueDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_itemestoque'
@@ -709,6 +737,11 @@ class ItemEstoqueDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteV
     template_name = 'gestao/item_estoque_confirm_delete.html'
     success_url = reverse_lazy('item_estoque_list')
     context_object_name = 'item'
+    
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Item de Estoque '{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)
 
 # ==============================================================================
 # === VIEWS PARA FRIGOBAR E CONSUMO                                          ===
@@ -745,11 +778,19 @@ def frigobar_detail_view(request, acomodacao_pk):
 @login_required
 @permission_required('gestao.delete_itemfrigobar', raise_exception=True)
 def remover_item_frigobar(request, item_frigobar_pk):
-    """Remove um item do frigobar."""
+    """Remove um item do frigobar e exibe uma mensagem de sucesso."""
     item_frigobar = get_object_or_404(ItemFrigobar, pk=item_frigobar_pk)
     acomodacao_pk = item_frigobar.frigobar.acomodacao.pk
+    
     if request.method == 'POST':
+        # Guarda o nome do item antes de apagar, para usar na mensagem
+        item_nome = item_frigobar.item.nome 
+        
         item_frigobar.delete()
+        
+        # Adiciona a mensagem de sucesso
+        messages.success(request, f"Item '{item_nome}' removido do frigobar com sucesso.")
+        
     return redirect('frigobar_detail', acomodacao_pk=acomodacao_pk)
 
 @login_required
@@ -774,9 +815,11 @@ def consumo_create_view(request, reserva_pk):
             # Atualizar valor do consumo na reserva
             reserva.valor_consumo = F('valor_consumo') + (consumo.quantidade * consumo.preco_unitario)
             reserva.save()
+
+            messages.success(request, f"{consumo.quantidade}x '{item_estoque.nome}' adicionado(s) à conta.")
         else:
-            # Adicionar uma mensagem de erro (futuramente)
-            pass
+            # Se não houver estoque, exibe uma mensagem de erro e não redireciona
+            messages.error(request, f"Estoque insuficiente para '{item_estoque.nome}'. Disponível: {item_estoque.quantidade}.")
             
         return redirect('reserva_detail', pk=reserva.pk)
 
@@ -799,7 +842,7 @@ class FormaPagamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
     paginate_by = 10 # Define 10 itens por página
     ordering = ['nome'] # Opcional: Garante a ordem alfabética
 
-class FormaPagamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class FormaPagamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_formapagamento'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -807,8 +850,9 @@ class FormaPagamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, Crea
     form_class = FormaPagamentoForm
     template_name = 'gestao/forma_pagamento_form.html'
     success_url = reverse_lazy('forma_pagamento_list')
+    success_message = "Forma de pagamento criado com sucesso!"
 
-class FormaPagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class FormaPagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_formapagamento'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
 
@@ -816,6 +860,7 @@ class FormaPagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Upda
     form_class = FormaPagamentoForm
     template_name = 'gestao/forma_pagamento_form.html'
     success_url = reverse_lazy('forma_pagamento_list')
+    success_message = "Forma de pagamento atualizado com sucesso!"
 
 class FormaPagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_formapagamento'
@@ -825,6 +870,11 @@ class FormaPagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
     template_name = 'gestao/forma_pagamento_confirm_delete.html'
     success_url = reverse_lazy('forma_pagamento_list')
     context_object_name = 'forma_pagamento'
+
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Forma de Pagamento '{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)
 
 # ==============================================================================
 # === VIEWS PARA PAGAMENTOS                                                  ===
@@ -861,13 +911,15 @@ def pagamento_create_view(request, reserva_pk):
     }
     return render(request, 'gestao/pagamento_form.html', context)
 
-class PagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class PagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_pagamento'
     raise_exception = True
 
     model = Pagamento
     form_class = PagamentoForm
     template_name = 'gestao/pagamento_form.html'
+
+    success_message = "Pagamento no valor de R$ %(valor)s atualizado com sucesso!"
 
     def get_success_url(self):
         # Volta para a página de detalhes da reserva após editar
@@ -883,6 +935,11 @@ class PagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
     def get_success_url(self):
         # Volta para a página de detalhes da reserva após excluir
         return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+    
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Pagamento no valor de R$ {self.object.valor} foi excluído com sucesso.")
+        return super().form_valid(form)
 
 # ==============================================================================
 # === VIEWS PARA ESTACIONAMENTO                                              ===
@@ -917,7 +974,7 @@ class VagaEstacionamentoListView(LoginRequiredMixin, PermissionRequiredMixin, Li
             
         return queryset
 
-class VagaEstacionamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class VagaEstacionamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_vagaestacionamento'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
@@ -925,8 +982,9 @@ class VagaEstacionamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, 
     form_class = VagaEstacionamentoForm
     template_name = 'gestao/vaga_estacionamento_form.html'
     success_url = reverse_lazy('vaga_estacionamento_list')
+    success_message = "Vaga de estacionamento criada com sucesso!"
 
-class VagaEstacionamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class VagaEstacionamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_vagaestacionamento'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
@@ -934,6 +992,7 @@ class VagaEstacionamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, 
     form_class = VagaEstacionamentoForm
     template_name = 'gestao/vaga_estacionamento_form.html'
     success_url = reverse_lazy('vaga_estacionamento_list')
+    success_message = "Vaga de estacionamento atualizado com sucesso!"
 
 class VagaEstacionamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_vagaestacionamento'
@@ -943,6 +1002,11 @@ class VagaEstacionamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, 
     template_name = 'gestao/vaga_estacionamento_confirm_delete.html'
     success_url = reverse_lazy('vaga_estacionamento_list')
     context_object_name = 'vaga'
+
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Vaga de estacionamento '{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)
 
 # ==============================================================================
 # === VIEWS PARA FUNCIONÁRIOS                                                ===
@@ -956,7 +1020,7 @@ class FuncionarioListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
     context_object_name = 'usuarios'
     ordering = ['username']
 
-class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_funcionario'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
@@ -964,8 +1028,9 @@ class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateV
     form_class = FuncionarioCreationForm
     template_name = 'gestao/funcionario_form.html'
     success_url = reverse_lazy('funcionario_list')
+    success_message = "Funcionario(a) criado(a) com sucesso!"
 
-class FuncionarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class FuncionarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_funcionario'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
@@ -973,6 +1038,7 @@ class FuncionarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateV
     form_class = FuncionarioUpdateForm
     template_name = 'gestao/funcionario_form.html'
     success_url = reverse_lazy('funcionario_list')
+    success_message = "Funcionario(a) atualilzado(a) com sucesso!"
 
 @login_required
 def toggle_funcionario_status(request, pk):
@@ -1280,7 +1346,7 @@ def financeiro_dashboard_view(request):
 # === VIEWS PARA GASTO                                   ===
 # ==========================================================
 
-class GastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class GastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_gasto'
     raise_exception = True
 
@@ -1288,6 +1354,7 @@ class GastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     form_class = GastoForm
     template_name = 'gestao/gasto_form.html'
     success_url = reverse_lazy('financeiro') # Volta para o painel financeiro
+    success_message = "Gasto atualizado com sucesso!"
 
 class GastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_gasto'
@@ -1296,6 +1363,11 @@ class GastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = Gasto
     template_name = 'gestao/gasto_confirm_delete.html'
     success_url = reverse_lazy('financeiro') # Volta para o painel financeiro
+
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"'{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)
 
 # ==========================================================
 # === VIEWS PARA CATEGORIAS DE GASTO                     ===
@@ -1311,7 +1383,7 @@ class CategoriaGastoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
     paginate_by = 10
     ordering = ['nome']
 
-class CategoriaGastoCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class CategoriaGastoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_categoriagasto'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
@@ -1319,8 +1391,9 @@ class CategoriaGastoCreateView(LoginRequiredMixin, PermissionRequiredMixin, Crea
     form_class = CategoriaGastoForm
     template_name = 'gestao/categoria_gasto_form.html'
     success_url = reverse_lazy('categoria_gasto_list')
+    success_message = "Categoria '%(nome)s' criada com sucesso!"
 
-class CategoriaGastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class CategoriaGastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_categoriagasto'
     raise_exception = True  # Mostra erro 403 se não tiver permissão
     
@@ -1328,6 +1401,7 @@ class CategoriaGastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Upda
     form_class = CategoriaGastoForm
     template_name = 'gestao/categoria_gasto_form.html'
     success_url = reverse_lazy('categoria_gasto_list')
+    success_message = "Categoria '%(nome)s' atualizada com sucesso!"
 
 class CategoriaGastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_categoriagasto'
@@ -1336,3 +1410,8 @@ class CategoriaGastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
     model = CategoriaGasto
     template_name = 'gestao/categoria_gasto_confirm_delete.html'
     success_url = reverse_lazy('categoria_gasto_list')
+
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Categoria '{self.object}' foi excluída com sucesso.")
+        return super().form_valid(form)

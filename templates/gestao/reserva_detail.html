@@ -6,14 +6,27 @@
 {% block title %}Detalhes da Reserva{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Detalhes da Reserva #{{ reserva.pk }}</h1>
+    <h1 class="h2">Detalhes da Reserva {{ reserva.pk }}</h1>
     <div class="btn-group me-2">
         <a href="{% url 'reserva_list' %}" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Voltar para Lista
         </a>
-        <a href="{% url 'imprimir_contrato_checkin' reserva.pk %}" target="_blank" class="btn btn-sm btn-primary">
-            <i class="bi bi-printer"></i> Imprimir Contrato
-        </a>
+
+        <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-gear-fill"></i> Ações
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <a class="dropdown-item" href="{% url 'imprimir_contrato_checkin' reserva.pk %}" target="_blank">
+                    <i class="bi bi-printer me-2"></i>Imprimir Ficha
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'imprimir_contrato_checkin' reserva.pk %}">
+                    <i class="bi bi-envelope me-2"></i>Enviar por E-mail
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 
@@ -48,7 +61,11 @@
                         , {{ reserva.num_criancas_12 }} criança(s) de 6 a 12 anos
                     {% endif %}
                 </p>
-                <p><strong>Status:</strong> <span class="badge bg-primary">{{ reserva.get_status_display }}</span></p>
+                <p><strong>Status:</strong> 
+                    <span class="badge" style="background-color: {{ reserva.status_color }};">
+                        {{ reserva.get_status_display }}
+                    </span>
+                </p>
             </div>
         </div>
         <!-- Card de Consumo -->

@@ -114,8 +114,8 @@ class Reserva(models.Model):
     )
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='reservas')
     acomodacao = models.ForeignKey(Acomodacao, on_delete=models.CASCADE, related_name='reservas')
-    data_checkin = models.DateField()
-    data_checkout = models.DateField()
+    data_checkin = models.DateTimeField()
+    data_checkout = models.DateTimeField()
     data_reserva = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pre_reserva')
     num_adultos = models.PositiveIntegerField("N° Adultos", default=1, help_text="N° de adultos") # Atualizado 18.09.25
@@ -143,7 +143,6 @@ class Reserva(models.Model):
         self.valor_total_diarias = self.calcular_total_diarias()
         super().save(*args, **kwargs)
 
-    # Modulo: Cálculo de valores da reserva
     def calcular_total_diarias(self):
         """Calcula o valor total das diárias com base nas datas."""
         if self.data_checkin and self.data_checkout:
@@ -169,6 +168,16 @@ class Reserva(models.Model):
             delta = self.data_checkout - self.data_checkin
             return delta.days
         return 0
+    @property
+    def status_color(self):
+        status_map = {
+            'cancelada': '#dc3545',   # Cinza (Bootstrap Secondary)
+            'checkin': '#0dcaf0',     # Azul Claro (Bootstrap Info)
+            'checkout': '#6c757d',    # Vermelho (Bootstrap Danger)
+            'confirmada': '#198754',  # Verde (Bootstrap Success)
+            'pre_reserva': '#ffc107', # Amarelo (Bootstrap Warning)
+        }
+        return status_map.get(self.status, '#6c757d') # Retorna cinza como padrão
 
 # Módulo: Consumo durante a estadia
 class Consumo(models.Model):

@@ -4,41 +4,51 @@
 {% extends 'base.html' %}
 {% block title %}Gerir Frigobar{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Gerir Frigobar da Acomodação: {{ acomodacao.numero }}</h1>
-    <a href="{% url 'acomodacao_list' %}" class="btn btn-sm btn-outline-secondary">Voltar</a>
-</div>
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Gerir Frigobar da Acomodação: {{ acomodacao.numero }}</h1>
+        <a href="{% url 'acomodacao_list' %}" class="btn btn-sm btn-outline-secondary">Voltar</a>
+    </div>
+</main>
 
-<div class="row">
+<div class="row px-md-4">
     <div class="col-md-7">
         <h3>Itens no Frigobar</h3>
-        <table class="table">
-            <thead><tr><th>Item</th><th>Quantidade</th><th>Ação</th></tr></thead>
-            <tbody>
-                {% for item_frigobar in frigobar.itemfrigobar_set.all %}
-                <tr>
-                    <td>{{ item_frigobar.item.nome }}</td>
-                    <td>{{ item_frigobar.quantidade }}</td>
-                    <td>
-                        <form action="{% url 'remover_item_frigobar' item_frigobar.pk %}" method="post">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-danger">Remover</button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="3" class="text-center">Frigobar vazio.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <table class="table">
+                    <thead><tr><th>Item</th><th>Quantidade</th><th>Ação</th></tr></thead>
+                    <tbody>
+                        {% for item_frigobar in frigobar.itemfrigobar_set.all %}
+                        <tr>
+                            <td>{{ item_frigobar.item.nome }}</td>
+                            <td>{{ item_frigobar.quantidade }}</td>
+                            <td>
+                                <form action="{% url 'remover_item_frigobar' item_frigobar.pk %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">Remover</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center">Frigobar vazio.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div class="col-md-5">
         <h3>Abastecer com Item do Estoque</h3>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit" class="btn btn-primary mt-2">Adicionar Item</button>
-        </form>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit" class="btn btn-primary mt-2">Adicionar Item</button>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

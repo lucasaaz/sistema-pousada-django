@@ -7,11 +7,15 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">{% if object %}Editar Forma de Pagamento{% else %}Adicionar Forma de Pagamento{% endif %}</h1>
 </div>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <hr>
-    <button type="submit" class="btn btn-primary">Salvar</button>
-    <a href="{% url 'forma_pagamento_list' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <hr>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+            <a href="{% url 'forma_pagamento_list' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
 {% endblock %}

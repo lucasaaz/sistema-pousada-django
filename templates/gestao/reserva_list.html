@@ -98,7 +98,7 @@
                                 {% elif reserva.status == 'cancelada' %}
                                     <span class="badge bg-danger text-light">{{ reserva.get_status_display }}</span>
                                 {% elif reserva.status == 'checkin' %}
-                                    <span class="badge bg-primary-soft text-primary">{{ reserva.get_status_display }}</span>
+                                    <span class="badge" style="color: #0dcaf0;">{{ reserva.get_status_display }}</span>
                                 {% elif reserva.status == 'checkout' %}
                                     <span class="badge bg-secondary-soft text-secondary">{{ reserva.get_status_display }}</span>
                                 {% else %}
