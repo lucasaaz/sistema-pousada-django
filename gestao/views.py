@@ -400,7 +400,7 @@ class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessM
     form_class = AcomodacaoForm
     template_name = 'gestao/acomodacao_form.html'
     success_url = reverse_lazy('acomodacao_list')
-    success_message = "Acomodação '%(nome)s' criada com sucesso!"
+    success_message = "Acomodação Nº %(numero)s criada com sucesso!"
 
 class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_acomodacao'
@@ -410,7 +410,7 @@ class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessM
     form_class = AcomodacaoForm
     template_name = 'gestao/acomodacao_form.html'
     success_url = reverse_lazy('acomodacao_list')
-    success_message = "Acomodação '%(nome)s' atualizada com sucesso!"
+    success_message = "Acomodação Nº %(numero)s atualizada com sucesso!"
 
 class AcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_acomodacao'
