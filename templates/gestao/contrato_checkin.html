@@ -155,7 +155,7 @@ body {
         </div>
         <div class="field-group">
             <span class="label">Hora:</span>
-            <span class="value filled-field"></span>
+            <span class="value">{{ reserva.data_checkin|date:"H:i" }}</span>
         </div>
     </div>
     <div class="row">
@@ -165,7 +165,7 @@ body {
         </div>
         <div class="field-group">
             <span class="label">Hora:</span>
-            <span class="value filled-field"></span>
+            <span class="value">{% now "H:i" %}</span>
         </div>
     </div>
     <div class="row">

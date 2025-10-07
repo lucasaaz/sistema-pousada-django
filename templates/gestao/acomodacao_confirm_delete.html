@@ -4,15 +4,21 @@
 {% extends 'base.html' %}
 {% block title %}Confirmar Exclusão{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Confirmar Exclusão de Acomodação</h1>
-</div>
-<p>Você tem certeza que deseja excluir a acomodação <strong>"{{ acomodacao.numero }} - {{ acomodacao.tipo.nome }}"</strong>?</p>
-<p class="text-danger">Esta ação não pode ser desfeita.</p>
-<form method="post">
-    {% csrf_token %}
-    <hr>
-    <button type="submit" class="btn btn-danger">Sim, confirmar exclusão</button>
-    <a href="{% url 'acomodacao_list' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Confirmar Exclusão de Acomodação</h1>
+    </div>  
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir a acomodação <strong>"{{ acomodacao.numero }} - {{ acomodacao.tipo.nome }}"</strong>?</p>
+            <p class="text-danger">Esta ação não pode ser desfeita.</p>
+            <form method="post">
+                {% csrf_token %}
+                <hr>
+                <button type="submit" class="btn btn-danger">Sim, confirmar exclusão</button>
+                <a href="{% url 'acomodacao_list' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</main>
 {% endblock %}

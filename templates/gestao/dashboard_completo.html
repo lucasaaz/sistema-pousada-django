@@ -345,17 +345,7 @@
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Mensagens -->
-        {% if messages %}
-        <div class="mb-4">
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-            {% endfor %}
-        </div>
-        {% endif %}
-        
+        </div>       
     </main>
 </div>
 {% endblock %}
@@ -454,11 +444,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Cores modernas e consistentes com o tema
     const backgroundColors = [
-        '#0dcaf0', // Azul (Check-in)
-        '#dc3545', // Vermelho (Cancelada)
+        '#e0e0e0', // Cinza Claro (Cancelado)
+        '#0dcaf0', // Azul claro (Check-in)
+        '#dc3545', // Vermelho (Check-out)
         '#28a745', // Verde (Confirmada)
-        '#ffae00', // Laranja (Check-out)
-        '#003366', // Laranja (Check-out)
+        '#ffae00', // Laranja (Pre-reserva)
     ];
 
     new Chart(ctx, {

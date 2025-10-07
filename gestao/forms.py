@@ -85,8 +85,8 @@ class ReservaForm(forms.ModelForm):
             'acomodacao': forms.Select(attrs={'class': 'form-select'}),
             'placa_automovel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'AAA-1234'}),
             # Adiciona um seletor de data nativo do navegador para uma melhor experiência
-            'data_checkin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'data_checkout': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_checkin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'data_checkout': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'num_adultos': forms.NumberInput(attrs={'class': 'form-control'}), # Atualizado 18.09.25
             'num_criancas_5': forms.NumberInput(attrs={'class': 'form-control'}), # Atualizado 18.09.25
             'num_criancas_12': forms.NumberInput(attrs={'class': 'form-control'}), # Atualizado 18.09.25
