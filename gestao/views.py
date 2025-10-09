@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.urls import reverse
 from django.http import JsonResponse
+from django.views.generic import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib.auth.decorators import login_required, permission_required
@@ -20,6 +21,7 @@ from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, Trun
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib import messages
+from .utils import calcular_tarifa_completa
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -288,6 +290,54 @@ def gerar_url_upload_view(request):
         return JsonResponse({'presigned_url': presigned_url, 'final_url': final_url})
 
     except ClientError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    
+#===============================================================================
+# === VIEW PARA CÁLCULO DE TARIFA VIA API                                    ===
+#===============================================================================
+
+@login_required
+def calcular_tarifa_view(request):
+    try:
+        # 1. Coleta os dados (continua igual)
+        acomodacao_id = request.GET.get('acomodacao_id')
+        checkin_str = request.GET.get('checkin')
+        checkout_str = request.GET.get('checkout')
+        num_adultos = int(request.GET.get('num_adultos', 0))
+        num_criancas_12 = int(request.GET.get('num_criancas_12', 0))
+        num_pessoas = num_adultos + num_criancas_12
+        
+        # 2. Converte e calcula (continua igual)
+        acomodacao = Acomodacao.objects.select_related('tipo').get(pk=acomodacao_id)
+        checkin_date = datetime.fromisoformat(checkin_str.replace('T', ' '))
+        checkout_date = datetime.fromisoformat(checkout_str.replace('T', ' '))
+
+        # --- Validação de Capacidade ---
+        if num_pessoas > acomodacao.capacidade:
+            return JsonResponse({
+                'error': f'Capacidade excedida. Acomodação suporta no máximo {acomodacao.capacidade} pessoas.'
+            }, status=400)
+
+        # --- Lógica de "TRADUÇÃO" ---
+        # Obtém o slug do tipo de acomodação
+        chave_preco = acomodacao.tipo.chave_de_preco
+
+        # Chama a função de cálculo com o tipo correto
+        valor_total, detalhamento = calcular_tarifa_completa(
+            chave_de_preco=chave_preco, # Passa a chave para a função
+            checkin_date=checkin_date,
+            checkout_date=checkout_date,
+            num_adultos=num_adultos,
+            num_criancas_12=num_criancas_12
+        )
+
+        return JsonResponse({
+            'valor_total': f'{valor_total:.2f}',
+            'detalhamento': detalhamento
+        })
+
+    except Exception as e:
+        print(f"ERRO AO CALCULAR TARIFA: {e}")
         return JsonResponse({'error': str(e)}, status=400)
 
 # ==============================================================================
@@ -565,22 +615,22 @@ class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     success_url = reverse_lazy('reserva_list')
     success_message = "Reserva para o cliente '%(cliente)s' atualizada com sucesso!"
 
-    def get_form(self, form_class=None):
-        # Primeiro, deixamos o Django criar o formulário normalmente
-        form = super().get_form(form_class)
-        
-        # 'self.object' é a instância da reserva que está sendo editada
+    def get_initial(self):
+        """
+        Pré-popula o formulário com dados customizados. Esta é a forma correta.
+        """
+        initial = super().get_initial()
         reserva = self.get_object()
         
-        # Agora, nós preenchemos os campos customizados diretamente no formulário
         if reserva.cliente:
-            form.fields['cliente_busca'].initial = reserva.cliente.nome_completo
+            initial['cliente_busca'] = reserva.cliente.nome_completo
+        
+        # O Django cuidará do preenchimento das datas a partir da instância,
+        # mas adicionamos explicitamente para garantir.
+        initial['data_checkin'] = reserva.data_checkin
+        initial['data_checkout'] = reserva.data_checkout
             
-        # E forçamos o preenchimento das datas, que era o nosso problema
-        form.fields['data_checkin'].initial = reserva.data_checkin
-        form.fields['data_checkout'].initial = reserva.data_checkout
-            
-        return form
+        return initial
 
     # ADICIONE ESTE MÉTODO PARA ENVIAR A FOTO
     def get_context_data(self, **kwargs):
@@ -593,9 +643,9 @@ class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
             context['cliente_foto_url'] = reserva.cliente.foto
         
         if reserva.data_checkin:
-            context['checkin_para_js'] = reserva.data_checkin.strftime('%Y-%m-%d')
+            context['checkin_para_js'] = reserva.data_checkin.strftime('%Y-%m-%dT%H:%M')
         if reserva.data_checkout:
-            context['checkout_para_js'] = reserva.data_checkout.strftime('%Y-%m-%d')
+            context['checkout_para_js'] = reserva.data_checkout.strftime('%Y-%m-%dT%H:%M')
               
         return context
 
@@ -881,6 +931,37 @@ class ItemEstoqueDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteV
         # Adiciona a mensagem de sucesso antes de o objeto ser deletado
         messages.success(self.request, f"Item de Estoque '{self.object}' foi excluída com sucesso.")
         return super().form_valid(form)
+    
+@login_required
+@permission_required('gestao.add_compraestoque', raise_exception=True)
+def compra_estoque_view(request, item_pk):
+    item_estoque = get_object_or_404(ItemEstoque, pk=item_pk)
+    
+    if request.method == 'POST':
+        form = CompraEstoqueForm(request.POST)
+        if form.is_valid():
+            compra = form.save(commit=False)
+            compra.item = item_estoque
+            compra.save()
+            
+            # Atualiza a quantidade total do item no estoque
+            item_estoque.quantidade = F('quantidade') + compra.quantidade
+            item_estoque.save()
+            
+            messages.success(request, f"Compra de {compra.quantidade}x '{item_estoque.nome}' registrada com sucesso.")
+            return redirect('compra_estoque_list', item_pk=item_estoque.pk)
+    else:
+        form = CompraEstoqueForm()
+
+    # Pega o histórico de compras para exibir no relatório
+    historico_compras = item_estoque.compras.all().order_by('-data_compra')
+    
+    context = {
+        'form': form,
+        'item_estoque': item_estoque,
+        'historico_compras': historico_compras
+    }
+    return render(request, 'gestao/compra_estoque_form.html', context)
 
 # ==============================================================================
 # === VIEWS PARA FRIGOBAR E CONSUMO                                          ===
@@ -913,6 +994,62 @@ def frigobar_detail_view(request, acomodacao_pk):
         'form': form
     }
     return render(request, 'gestao/frigobar_detail.html', context)
+
+class ItemFrigobarUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = ItemFrigobar
+    form_class = ItemFrigobarUpdateForm
+    template_name = 'gestao/item_frigobar_form.html' # Criaremos este template a seguir
+    permission_required = 'gestao.change_itemfrigobar'
+    success_message = "Quantidade do item atualizada com sucesso!"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Enviamos o 'item_frigobar' para o template para podermos usar o nome no título
+        context['item_frigobar'] = self.object
+        return context
+
+    def get_success_url(self):
+        # Volta para a página de detalhes do frigobar após salvar
+        return reverse_lazy('frigobar_detail', kwargs={'acomodacao_pk': self.object.frigobar.acomodacao.pk})
+    
+@login_required
+@permission_required('gestao.add_consumo', raise_exception=True)
+def registrar_consumo_view(request, item_frigobar_pk):
+    """
+    Registra o consumo de UMA unidade de um item do frigobar,
+    adicionando à conta do hóspede atual e diminuindo do estoque do frigobar.
+    """
+    item_frigobar = get_object_or_404(ItemFrigobar, pk=item_frigobar_pk)
+    acomodacao = item_frigobar.frigobar.acomodacao
+    
+    # Encontra a reserva ativa (com check-in feito) para esta acomodação
+    reserva_ativa = Reserva.objects.filter(acomodacao=acomodacao, status='checkin').first()
+
+    if request.method == 'POST':
+        if not reserva_ativa:
+            messages.error(request, "Não há uma reserva ativa (com check-in) nesta acomodação para registrar o consumo.")
+        elif item_frigobar.quantidade <= 0:
+            messages.warning(request, f"Estoque de '{item_frigobar.item.nome}' no frigobar já está zerado.")
+        else:
+            # Cria um novo registro de consumo para a reserva ativa
+            Consumo.objects.create(
+                reserva=reserva_ativa,
+                item=item_frigobar.item,
+                quantidade=1,
+                preco_unitario=item_frigobar.item.preco_venda
+            )
+            
+            # Diminui a quantidade no frigobar
+            item_frigobar.quantidade = F('quantidade') - 1
+            item_frigobar.save()
+            
+            # Atualiza o valor total do consumo na reserva
+            reserva_ativa.valor_consumo = F('valor_consumo') + item_frigobar.item.preco_venda
+            reserva_ativa.save()
+            
+            messages.success(request, f"1x '{item_frigobar.item.nome}' registrado na conta da reserva #{reserva_ativa.pk}.")
+            
+    return redirect('frigobar_detail', acomodacao_pk=acomodacao.pk)
 
 @login_required
 @permission_required('gestao.delete_itemfrigobar', raise_exception=True)
@@ -1505,7 +1642,7 @@ class GastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
     def form_valid(self, form):
         # Adiciona a mensagem de sucesso antes de o objeto ser deletado
-        messages.success(self.request, f"Gasto '{self.object}' foi excluída com sucesso.")
+        messages.success(self.request, f"'{self.object}' foi excluída com sucesso.")
         return super().form_valid(form)
 
 # ==========================================================

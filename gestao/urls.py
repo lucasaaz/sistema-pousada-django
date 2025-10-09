@@ -62,11 +62,14 @@ urlpatterns = [
     path('estoque/adicionar/', views.ItemEstoqueCreateView.as_view(), name='item_estoque_add'),
     path('estoque/editar/<int:pk>/', views.ItemEstoqueUpdateView.as_view(), name='item_estoque_edit'),
     path('estoque/excluir/<int:pk>/', views.ItemEstoqueDeleteView.as_view(), name='item_estoque_delete'),
+    path('estoque/<int:item_pk>/compras/', views.compra_estoque_view, name='compra_estoque_list'),
 
     # URLs para Frigobar e Consumo
     path('acomodacoes/<int:acomodacao_pk>/frigobar/', views.frigobar_detail_view, name='frigobar_detail'),
     path('frigobar/remover-item/<int:item_frigobar_pk>/', views.remover_item_frigobar, name='remover_item_frigobar'),
     path('reservas/<int:reserva_pk>/adicionar-consumo/', views.consumo_create_view, name='consumo_add'),
+    path('item-frigobar/<int:pk>/editar/', views.ItemFrigobarUpdateView.as_view(), name='editar_item_frigobar'),
+    path('item-frigobar/<int:item_frigobar_pk>/registrar-consumo/', views.registrar_consumo_view, name='registrar_consumo_frigobar'),
 
     # URLs para Pagamentos
     path('reserva/<int:reserva_pk>/pagamento/adicionar/', views.pagamento_create_view, name='pagamento_add'),
@@ -117,12 +120,15 @@ urlpatterns = [
     # URL para a API de verificação de duplicidade de CPF ou e-mail
     path('api/verificar-duplicidade/', views.verificar_duplicidade_view, name='api_verificar_duplicidade'),
 
-    # ADICIONE ESTA URL DE DEBUG NO FINAL DA LISTA
+    ## URL para debug de S3
     path('debug-s3/', views.debug_s3_view, name='debug_s3'),
 
-    # ADICIONE ESTA NOVA ROTA PARA GERAR A URL DE UPLOAD
+    # URL para a API de geração de URL de upload
     path('api/gerar-url-upload/', views.gerar_url_upload_view, name='api_gerar_url_upload'),
 
-    # ADICIONE ESTA NOVA ROTA
+    # URL para enviar e-mail de confirmação de reserva
     path('reservas/<int:pk>/enviar-email/', views.enviar_email_reserva_view, name='enviar_email_reserva'),
+
+    # URL para a API de cálculo de tarifa
+    path('api/calcular-tarifa/', views.calcular_tarifa_view, name='api_calcular_tarifa'),
 ]

@@ -21,8 +21,9 @@
                         <label class="form-label">{{ form.nome_completo.label }}</label>
                         {{ form.nome_completo }}
                     </div>
-                    <div class="col-md-6"><label class="form-label">{{ form.cpf.label }}</label>{{ form.cpf }} <div id="cpf-feedback" class="invalid-feedback d-block"></div> </div>
-                    <div class="col-md-6"><label class="form-label">{{ form.data_nascimento.label }}</label>{{ form.data_nascimento }}</div>
+                    <div class="col-md-5"><label class="form-label">{{ form.cpf.label }}</label>{{ form.cpf }} <div id="cpf-feedback" class="invalid-feedback d-block"></div> </div>
+                    <div class="col-md-5"><label class="form-label">{{ form.data_nascimento.label }}</label>{{ form.data_nascimento }}</div>
+                    <div class="col-sm-2"><label class="form-label">{{ form.sexo.label }}</label> {{ form.sexo }} </div>
                     <div class="col-md-6"><label class="form-label">{{ form.email.label }}</label>{{ form.email }} <div id="email-feedback" class="invalid-feedback d-block"></div> </div>
                     <div class="col-md-6"><label class="form-label">{{ form.telefone.label }}</label>{{ form.telefone }}</div>
                 </div>

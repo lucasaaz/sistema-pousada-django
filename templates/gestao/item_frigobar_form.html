@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Editar Item do Frigobar{% endblock %}
+
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Editar quantidade de: {{ item_frigobar.item.nome }}</h1>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="{{ form.quantidade.id_for_label }}" class="form-label">Nova Quantidade:</label>
+                    {{ form.quantidade }}
+                    {{ form.quantidade.errors }}
+                </div>
+                
+                <div class="text-end">
+                    <a href="{% url 'frigobar_detail' acomodacao_pk=item_frigobar.frigobar.acomodacao.pk %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar Alteração</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

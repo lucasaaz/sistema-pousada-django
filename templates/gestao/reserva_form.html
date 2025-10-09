@@ -52,6 +52,8 @@
                         {% endif %}
                     </div>
 
+                    <div class="col-12"><hr class="my-2"></div>
+
                     <div class="col-md-6">
                         <label for="{{ form.data_checkin.id_for_label }}" class="form-label">{{ form.data_checkin.label }}</label>
                         {{ form.data_checkin }}
@@ -63,35 +65,46 @@
                         {{ form.data_checkout }}
                         {{ form.data_checkout.errors }}
                     </div>
-                    
+
                     <div class="col-12"><hr class="my-2"></div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="{{ form.num_adultos.id_for_label }}" class="form-label">{{ form.num_adultos.label }}</label>
                         {{ form.num_adultos }}
-                        {{ form.num_adultos.errors }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="{{ form.num_criancas_5.id_for_label }}" class="form-label">{{ form.num_criancas_5.label }}</label>
                         {{ form.num_criancas_5 }}
-                        {{ form.num_criancas_5.errors }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="{{ form.num_criancas_12.id_for_label }}" class="form-label">{{ form.num_criancas_12.label }}</label>
                         {{ form.num_criancas_12 }}
-                        {{ form.num_criancas_12.errors }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                                {{ form.status }}
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-12"><hr class="my-2"></div>
 
-                    <div class="col-md-4">
-                        <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
-                        {{ form.status }}
-                        {{ form.status.errors }}
+                    <div class="col-8 mt-2 mx-auto">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <label for="valor-total-input" class="form-label fw-bold">VALOR TOTAL DAS DIÁRIAS (R$)</label>
+                                {{ form.valor_total_diarias }}
+                                <small class.text-muted id="detalhamento-calculo"></small>
+                                <small class="text-muted">(O valor final pode incluir consumos e taxas extras)</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="card-footer bg-white text-end px-0 pt-4 mt-2">
+                <div class="card-footer bg-white text-end px-0 pt-4 mt-3">
                     <a href="{% url 'reserva_list' %}" class="btn btn-secondary">Cancelar</a>
                     <button type="submit" class="btn btn-primary">Salvar Reserva</button>
                 </div>
@@ -103,6 +116,64 @@
 
 {% block scripts %}
 {{ block.super }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Pega todos os elementos que afetam o preço
+    const acomodacaoInput = document.getElementById('{{ form.acomodacao.id_for_label }}');
+    const checkinInput = document.getElementById('{{ form.data_checkin.id_for_label }}');
+    const checkoutInput = document.getElementById('{{ form.data_checkout.id_for_label }}');
+    const numAdultosInput = document.getElementById('{{ form.num_adultos.id_for_label }}');
+    const numCriancas12Input = document.getElementById('{{ form.num_criancas_12.id_for_label }}');
+
+    const valorDisplay = document.getElementById('valor-total-display');
+
+    function calcularTarifa() {
+        const acomodacaoId = acomodacaoInput.value;
+        const checkin = checkinInput.value;
+        const checkout = checkoutInput.value;
+        const numAdultos = parseInt(numAdultosInput.value) || 0;
+        const numCriancas12 = parseInt(numCriancas12Input.value) || 0;
+        
+        if (!acomodacaoId || !checkin || !checkout || (numAdultos + numCriancas12) === 0) {
+            valorDisplay.textContent = 'R$ 0,00';
+            return;
+        }
+
+        const url = `{% url 'api_calcular_tarifa' %}?acomodacao_id=${acomodacaoId}&checkin=${checkin}&checkout=${checkout}&num_adultos=${numAdultos}&num_criancas_12=${numCriancas12}`;
+        
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    // Se a resposta for um erro (400, 500), joga um erro para o .catch()
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const valorInput = document.getElementById('valor-total-input');
+                if (data.valor_total !== undefined) {
+                    valorInput.value = parseFloat(data.valor_total).toFixed(2);
+                    // Bonus: exibe o detalhamento se houver
+                    const detalhamentoDisplay = document.getElementById('detalhamento-calculo');
+                    if (data.detalhamento && detalhamentoDisplay) {
+                        detalhamentoDisplay.textContent = data.detalhamento.join(' | ');
+                    }
+                } else {
+                    valorDisplay.textContent = 'Não aplicável';
+                }
+            })
+            .catch(error => {
+                console.error('Erro na chamada da API de tarifa:', error);
+                valorDisplay.textContent = 'Erro';
+            });
+    }
+
+    // Adiciona "escutadores" para todos os campos
+    [acomodacaoInput, checkinInput, checkoutInput, numAdultosInput, numCriancas12Input]
+        .forEach(el => el.addEventListener('change', calcularTarifa));
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -157,15 +228,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkinInput = document.getElementById('{{ form.data_checkin.id_for_label }}');
     const checkoutInput = document.getElementById('{{ form.data_checkout.id_for_label }}');
 
-    // Pega as datas que a view enviou
+    // Pega as strings de data que a view enviou
     const checkinValue = '{{ checkin_para_js|default:"" }}';
     const checkoutValue = '{{ checkout_para_js|default:"" }}';
 
-    // Se o campo e o valor existirem, tenta preencher
+    // Se o campo e o valor existirem, insere o valor diretamente
     if (checkinInput && checkinValue) {
         checkinInput.value = checkinValue;
     }
-
     if (checkoutInput && checkoutValue) {
         checkoutInput.value = checkoutValue;
     }

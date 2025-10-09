@@ -7,7 +7,9 @@
 <main class="px-md-4">
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
         <h1 class="h2">Gerir Frigobar da Acomodação: {{ acomodacao.numero }}</h1>
-        <a href="{% url 'acomodacao_list' %}" class="btn btn-sm btn-outline-secondary">Voltar</a>
+        <a href="{% url 'acomodacao_list' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar para Acomodações
+        </a>
     </div>
 </main>
 
@@ -24,9 +26,22 @@
                             <td>{{ item_frigobar.item.nome }}</td>
                             <td>{{ item_frigobar.quantidade }}</td>
                             <td>
-                                <form action="{% url 'remover_item_frigobar' item_frigobar.pk %}" method="post">
+                                <form action="{% url 'registrar_consumo_frigobar' item_frigobar.pk %}" method="post" class="d-inline">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-danger">Remover</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Registrar consumo de 1 unidade">
+                                        <i class="bi bi-cart"></i>
+                                    </button>
+                                </form>
+
+                                <a href="{% url 'editar_item_frigobar' item_frigobar.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar quantidade">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                <form action="{% url 'remover_item_frigobar' item_frigobar.pk %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover item do frigobar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </form>
                             </td>
                         </tr>

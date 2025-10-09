@@ -18,6 +18,12 @@ class ConfiguracaoHotel(models.Model):
 
 # Módulo: Clientes
 class Cliente(models.Model):
+    SEXO_CHOICES = (
+        ('Masculino', 'Masculino'),
+        ('Feminino', 'Feminino'),
+        ('Outro', 'Outro'),
+    )
+
     nome_completo = models.CharField(max_length=150)
     cpf = models.CharField(max_length=14, unique=True, help_text="Formato: 000.000.000-00")
     email = models.EmailField(unique=True, null=True, blank=True)
@@ -32,6 +38,7 @@ class Cliente(models.Model):
     cidade = models.CharField(max_length=100, null=True, blank=True) # Atualizado 18.09.25
     estado = models.CharField(max_length=2, null=True, blank=True, verbose_name="UF") # Atualizado 18.09.25
     foto = models.URLField(max_length=1024, null=True, blank=True, verbose_name="Foto do Cliente")
+    sexo = models.CharField(max_length=10, choices=SEXO_CHOICES, null=True, blank=True)
 
 
     def __str__(self):
@@ -41,6 +48,11 @@ class Cliente(models.Model):
 class TipoAcomodacao(models.Model):
     nome = models.CharField(max_length=50, unique=True, help_text="Ex: Suíte Master, Quarto Simples")
     descricao = models.TextField(blank=True)
+
+    chave_de_preco = models.CharField(
+        max_length=50,
+        help_text="Chave usada pela calculadora de tarifas (ex: 'quarto', 'chale', 'coletivo', 'quarto_familia'). Use apenas letras minúsculas e sem espaços."
+    )
 
     def __str__(self):
         return self.nome
@@ -54,7 +66,6 @@ class Acomodacao(models.Model):
     )
     numero = models.CharField(max_length=10, unique=True)
     tipo = models.ForeignKey(TipoAcomodacao, on_delete=models.PROTECT, related_name='acomodacoes')
-    valor_diaria = models.DecimalField(max_digits=10, decimal_places=2)
     descricao = models.TextField(null=True, blank=True)
     capacidade = models.PositiveIntegerField(default=1, help_text="Número máximo de hóspedes.") 
     qtd_camas = models.PositiveIntegerField(default=1, help_text="Quantidade de camas no quarto.") 
@@ -90,6 +101,20 @@ class ItemEstoque(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.quantidade} un.)"
+    
+class CompraEstoque(models.Model):
+    item = models.ForeignKey(ItemEstoque, on_delete=models.PROTECT, related_name='compras')
+    quantidade = models.PositiveIntegerField()
+    preco_compra_unitario = models.DecimalField("Preço de Custo (Unitário)", max_digits=10, decimal_places=2)
+    fornecedor = models.CharField("Fornecedor/Local da Compra", max_length=100, null=True, blank=True)
+    data_compra = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Compra de {self.quantidade}x {self.item.nome} em {self.data_compra.strftime('%d/%m/%Y')}"
+
+    @property
+    def preco_compra_total(self):
+        return self.quantidade * self.preco_compra_unitario
 
 class Frigobar(models.Model):
     acomodacao = models.OneToOneField(Acomodacao, on_delete=models.CASCADE, related_name='frigobar')
@@ -122,6 +147,7 @@ class Reserva(models.Model):
     num_criancas_5 = models.PositiveIntegerField("N° Crianças até 5 anos", default=0, help_text="Crianças até 5 anos") 
     num_criancas_12 = models.PositiveIntegerField("N° Crianças de 6 a 12 anos", default=0, help_text="Crianças de 6 a 12 anos") 
     placa_automovel = models.CharField(max_length=15, null=True, blank=True, verbose_name="Placa do Automóvel")
+    valor_total_diarias = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     
     # Valores calculados no checkout
     valor_total_diarias = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
@@ -132,21 +158,6 @@ class Reserva(models.Model):
 
     def __str__(self):
         return f"Reserva de {self.cliente.nome_completo} para {self.acomodacao.numero}"
-    
-    def save(self, *args, **kwargs):
-        """
-        Sobrescreve o método save() para calcular o valor total das diárias
-        sempre que uma reserva é criada ou editada.
-        """
-        self.valor_total_diarias = self.calcular_total_diarias()
-        super().save(*args, **kwargs)
-
-    def calcular_total_diarias(self):
-        """Calcula o valor total das diárias com base nas datas."""
-        if self.data_checkin and self.data_checkout:
-            num_dias = (self.data_checkout - self.data_checkin).days
-            return num_dias * self.acomodacao.valor_diaria
-        return 0
 
     def total_a_pagar(self):
         """Calcula o valor total da reserva (diárias + consumo - desconto + extras)."""

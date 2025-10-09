@@ -7,7 +7,7 @@ from django.forms import ModelForm
 from django_select2.forms import Select2Widget
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
-from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto, ArquivoReserva
+from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto, ArquivoReserva, CompraEstoque
 
 # Formulário para Clientes
 class ClienteForm(forms.ModelForm):
@@ -16,14 +16,15 @@ class ClienteForm(forms.ModelForm):
         
         # Campos que aparecerão no formulário
         fields = [
-            'nome_completo', 'cpf', 'data_nascimento', 'email', 'telefone',
-            'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'
+            'nome_completo', 'cpf', 'data_nascimento', 'sexo', 'email', 'telefone',
+            'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'foto'
         ]
         # Adiciona classes do Bootstrap para estilizar os campos
         widgets = {
             'nome_completo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome completo do cliente'}),
             'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00'}),
             'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'sexo': forms.Select(attrs={'class': 'form-select'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'email@exemplo.com'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
             'cep': forms.TextInput(attrs={'class': 'form-control', 'id': 'cep-input'}),
@@ -51,13 +52,12 @@ class AcomodacaoForm(forms.ModelForm):
     """Formulário para criar e editar Acomodações."""
     class Meta:
         model = Acomodacao
-        fields = ['numero', 'tipo', 'valor_diaria', 'status', 'descricao', 'capacidade', 'qtd_camas']
+        fields = ['numero', 'tipo', 'status', 'descricao', 'capacidade', 'qtd_camas']
         widgets = {
             'numero': forms.TextInput(attrs={'class': 'form-control'}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
             'capacidade': forms.NumberInput(attrs={'class': 'form-control'}),
             'qtd_camas': forms.NumberInput(attrs={'class': 'form-control'}),
-            'valor_diaria': forms.NumberInput(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
         }
@@ -79,12 +79,12 @@ class ReservaForm(forms.ModelForm):
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
+        fields = ['valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
         widgets = {
+            'valor_total_diarias': forms.NumberInput(attrs={'class': 'form-control', 'id': 'valor-total-input'}),
             'cliente': forms.HiddenInput(),
             'acomodacao': forms.Select(attrs={'class': 'form-select'}),
             'placa_automovel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'AAA-1234'}),
-            # Adiciona um seletor de data nativo do navegador para uma melhor experiência
             'data_checkin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'data_checkout': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'num_adultos': forms.NumberInput(attrs={'class': 'form-control'}), # Atualizado 18.09.25
@@ -102,6 +102,16 @@ class ReservaForm(forms.ModelForm):
         data_checkin = cleaned_data.get("data_checkin")
         data_checkout = cleaned_data.get("data_checkout")
         acomodacao = cleaned_data.get("acomodacao")
+        num_adultos = cleaned_data.get("num_adultos", 0)
+        num_criancas_12 = cleaned_data.get("num_criancas_12", 0)
+
+        num_pessoas = num_adultos + num_criancas_12
+
+        # --- Validação de Capacidade ---
+        if acomodacao and num_pessoas > acomodacao.capacidade:
+            raise forms.ValidationError(
+                f"O número de hóspedes ({num_pessoas}) excede a capacidade máxima da acomodação ({acomodacao.capacidade})."
+            )
         
         if data_checkin and data_checkout and data_checkin >= data_checkout:
             raise forms.ValidationError("A data de check-out deve ser posterior à data de check-in.")
@@ -112,7 +122,11 @@ class ReservaForm(forms.ModelForm):
                 acomodacao=acomodacao,
                 data_checkin__lt=data_checkout,
                 data_checkout__gt=data_checkin,
-            ).exclude(pk=self.instance.pk)
+            ).exclude(
+                status='cancelada' # Ignora as canceladas
+            ).exclude(
+                pk=self.instance.pk # Continua ignorando a própria reserva na edição
+            )
 
             if conflitos.exists():
                 raise forms.ValidationError(f"A acomodação '{acomodacao}' já está reservada para este período.")
@@ -132,6 +146,29 @@ class ItemEstoqueForm(forms.ModelForm):
             'preco_venda': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
+class CompraEstoqueForm(forms.ModelForm):
+    class Meta:
+        model = CompraEstoque
+        fields = ['quantidade', 'preco_compra_unitario', 'fornecedor', 'data_compra']
+        widgets = {
+            'quantidade': forms.NumberInput(attrs={'class': 'form-control'}),
+            'preco_compra_unitario': forms.NumberInput(attrs={'class': 'form-control'}),
+            'fornecedor': forms.TextInput(attrs={'class': 'form-control'}),
+            'data_compra': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+        }
+
+# Formulário específico para editar a quantidade de um item no frigobar
+class ItemFrigobarUpdateForm(forms.ModelForm):
+    """
+    Formulário específico para editar a quantidade de um item no frigobar.
+    """
+    class Meta:
+        model = ItemFrigobar
+        fields = ['quantidade']
+        widgets = {
+            'quantidade': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+  
 # Formulario para Itens de Frigobar
 class AbastecerFrigobarForm(forms.ModelForm):
     """Formulário para adicionar um item a um frigobar."""

@@ -16,6 +16,8 @@ from .models import (
     Consumo,
     FormaPagamento,
     Pagamento,
+    CategoriaGasto,
+    Gasto,
 )
 
 # A forma mais simples de registar os modelos é usando admin.site.register
@@ -31,3 +33,5 @@ admin.site.register(Reserva)
 admin.site.register(Consumo)
 admin.site.register(FormaPagamento)
 admin.site.register(Pagamento)
+admin.site.register(CategoriaGasto)
+admin.site.register(Gasto)
