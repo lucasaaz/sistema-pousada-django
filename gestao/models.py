@@ -73,11 +73,12 @@ class Acomodacao(models.Model):
 
     @property
     def nome_display(self):
-        # Verifica se o primeiro caractere do número é '0'
-        if self.numero.startswith('0'):
-            return f"Quarto {self.numero}"
-        else:
+        # Se o número for o texto "1" ou o texto "2", é um Chalé
+        if self.numero in ('1', '2'):
             return f"Chalé {self.numero}"
+        # Para todos os outros casos ("01", "02", etc.), é um Quarto
+        else:
+            return f"Quarto {self.numero}"
 
     def __str__(self):
         return self.nome_display

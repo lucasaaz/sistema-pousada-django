@@ -150,11 +150,7 @@
                                     <div class="card-body mudar-cor">
                                         <div class="d-flex justify-content-between">
                                             <h6 class="card-title fw-bold">
-                                                {% if acomodacao.numero|stringformat:"s"|slice:":1" == "0" %}
-                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Quarto {{ acomodacao.numero }} </a>
-                                                {% else %}
-                                                    <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link"> Chalé {{ acomodacao.numero }} </a>
-                                                {% endif %}
+                                                <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="nav-link">{{ acomodacao.nome_display }} </a>
                                             </h6>
                                             {% if acomodacao.status == 'disponivel' %}<span class="badge bg-success-soft text-success">Disponível</span>
                                             {% elif acomodacao.status == 'ocupado' %}<span class="badge bg-danger-soft text-danger">Ocupado</span>
