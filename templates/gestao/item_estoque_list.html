@@ -60,6 +60,9 @@
                             </td>
                             <td>{{ item.preco_venda|floatformat:2 }}</td>
                             <td class="text-end">
+                                <a href="{% url 'compra_estoque_list' item.pk %}" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="Adicionar Compra / Ver Histórico">
+                                    <i class="bi bi-plus-circle"></i>
+                                </a>
                                 <a href="{% url 'item_estoque_edit' item.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar Item">
                                     <i class="bi bi-pencil"></i>
                                 </a>

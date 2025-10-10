@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Registrar Compra de {{ item_estoque.nome }}{% endblock %}
+
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Registrar Compra: <span class="text-primary">{{ item_estoque.nome }}</span></h1>
+        <a href="{% url 'item_estoque_list' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar para Estoque
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="m-0 fw-bold">Nova Compra</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-primary">Registrar Compra</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="m-0 fw-bold">Histórico de Compras</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Qtd.</th>
+                                    <th>Custo (Unit.)</th>
+                                    <th>Custo Total</th>
+                                    <th>Fornecedor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for compra in historico_compras %}
+                                <tr>
+                                    <td>{{ compra.data_compra|date:"d/m/y H:i" }}</td>
+                                    <td>{{ compra.quantidade }}</td>
+                                    <td>R$ {{ compra.preco_compra_unitario|floatformat:2 }}</td>
+                                    <td>R$ {{ compra.preco_compra_total|floatformat:2 }}</td>
+                                    <td>{{ compra.fornecedor|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">Nenhuma compra registrada para este item.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

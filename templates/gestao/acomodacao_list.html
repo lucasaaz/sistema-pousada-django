@@ -56,7 +56,6 @@
                             <th scope="col">Capacidade</th>
                             <th scope="col">N° de Camas</th>
                             <th scope="col">Status</th>
-                            <th scope="col">Diária (R$)</th>
                             <th scope="col" class="text-end">Ações</th>
                         </tr>
                     </thead>
@@ -80,7 +79,6 @@
                                     <span class="badge bg-secondary-soft text-secondary">{{ acomodacao.get_status_display }}</span>
                                 {% endif %}
                             </td>
-                            <td>{{ acomodacao.valor_diaria|floatformat:2 }}</td>
                             <td class="text-end">
                                 <a href="{% url 'acomodacao_edit' acomodacao.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar Acomodação">
                                     <i class="bi bi-pencil"></i>
