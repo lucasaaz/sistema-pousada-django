@@ -211,6 +211,15 @@ class ConsumoForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Limita a escolha de itens para apenas aqueles que têm estoque > 0
         self.fields['item'].queryset = ItemEstoque.objects.filter(quantidade__gt=0)
+
+# Formulario para editar um consumo existente
+class ConsumoUpdateForm(forms.ModelForm):
+    class Meta:
+        model = Consumo
+        fields = ['quantidade']
+        widgets = {
+            'quantidade': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
     
 # Formulario para Pagamentos
 class PagamentoForm(forms.ModelForm):

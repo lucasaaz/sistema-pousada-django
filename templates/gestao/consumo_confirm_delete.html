@@ -1,0 +1,26 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/consumo_confirm_delete.html                      -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Confirmar Exclusão de Consumo{% endblock %}
+
+{% block content %}
+<main class="px-md-4">
+    <div class="pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Excluir Consumo</h1>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir o consumo de <strong>{{ consumo.quantidade }}x {{ consumo.item.nome }}</strong> da reserva de <strong>{{ consumo.reserva.cliente.nome_completo }}</strong>?</p>
+            <p class="text-danger">Esta ação irá abater R$ {{ consumo.total }} da conta do hóspede e devolver {{ consumo.quantidade }} unidade(s) ao estoque.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <a href="{% url 'reserva_detail' pk=consumo.reserva.pk %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Sim, tenho certeza</button>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

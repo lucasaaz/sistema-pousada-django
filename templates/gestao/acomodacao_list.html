@@ -60,7 +60,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for acomodacao in page_obj %}
+                        {% for acomodacao in acomodacoes %}
                         <tr class="{% cycle '' 'table-light' %}">
                             <td><span class="fw-bold">{{ acomodacao.numero }}</span></td>
                             <td>{{ acomodacao.tipo.nome }}</td>
@@ -100,21 +100,46 @@
                 </table>
             </div>
         </div>
-
+        
         {% if page_obj.paginator.num_pages > 1 %}
-        <div class="card-footer">
+        <div class="card-footer bg-light border-top shadow-sm">
             <nav aria-label="Navegação das acomodações">
-                <ul class="pagination justify-content-center mb-0">
+                <ul class="pagination justify-content-center mb-0 mt-2 flex-wrap">
+
                     {% if page_obj.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?page=1&{{ request.GET.urlencode }}">&laquo; Primeira</a></li>
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Anterior</a></li>
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-2 py-1 shadow-sm border-0 text-secondary fw-normal small"
+                            href="?page=1{% if params %}&{{ params }}{% endif %}">
+                                <i class="bi bi-chevron-double-left"></i> Primeira
+                            </a>
+                        </li>
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-2 py-1 shadow-sm border-1 text-secondary fw-normal small"
+                            href="?page={{ page_obj.previous_page_number }}{% if params %}&{{ params }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i> Anterior
+                            </a>
+                        </li>
                     {% endif %}
 
-                    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+                    <li class="page-item disabled mx-1">
+                        <span class="page-link rounded-pill px-3 py-1 border-1 shadow-sm fw-normal small">
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
 
                     {% if page_obj.has_next %}
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Próxima</a></li>
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">Última &raquo;</a></li>
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-2 py-1 shadow-sm border-0 text-secondary fw-normal small"
+                            href="?page={{ page_obj.next_page_number }}{% if params %}&{{ params }}{% endif %}">
+                                Próxima <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-2 py-1 shadow-sm border-1 text-secondary fw-normal small"
+                            href="?page={{ page_obj.paginator.num_pages }}{% if params %}&{{ params }}{% endif %}">
+                                Última <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
                     {% endif %}
                 </ul>
             </nav>

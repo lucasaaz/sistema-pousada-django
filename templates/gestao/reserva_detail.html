@@ -73,7 +73,44 @@
             <div class="card-header d-flex justify-content-between align-items-center">Consumo
                 {% if reserva.status == 'checkin' %}<a href="{% url 'consumo_add' reserva.pk %}" class="btn btn-sm btn-success"><i class="bi bi-plus-lg"></i> Adicionar Consumo</a>{% endif %}
             </div>
-            <div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Item</th><th>Qtd.</th><th>Preço Unit.</th><th>Total</th></tr></thead><tbody>{% for consumo in reserva.consumos.all %}<tr><td>{{ consumo.item.nome }}</td><td>{{ consumo.quantidade }}</td><td>R$ {{ consumo.preco_unitario }}</td><td>R$ {{ consumo.total }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center">Nenhum consumo registado.</td></tr>{% endfor %}</tbody></table></div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Qtd.</th>
+                            <th>Preço Unit.</th>
+                            <th>Total</th>
+                            <th class="text-end">Ações</th> </tr>
+                    </thead>
+                    <tbody>
+                        {% for consumo in reserva.consumos.all %}
+                        <tr>
+                            <td>{{ consumo.item.nome }}</td>
+                            <td>{{ consumo.quantidade }}</td>
+                            <td>R$ {{ consumo.preco_unitario|floatformat:2 }}</td>
+                            <td>R$ {{ consumo.total|floatformat:2 }}</td>
+                            
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <a href="{% url 'consumo_edit' consumo.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar Consumo">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    
+                                    <a href="{% url 'consumo_delete' consumo.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir Consumo">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">Nenhum consumo registado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         <!-- Card de Pagamentos -->
         <div class="card shadow-sm mb-4">

@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_select2',
     'django.contrib.humanize',
+    'simple_history',
     # Nosso app principal
     'gestao',
 ]
@@ -33,6 +34,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'pousada_project.urls'
