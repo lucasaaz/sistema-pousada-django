@@ -12,12 +12,13 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib.auth.decorators import login_required, permission_required
 from django.utils import timezone
+from django.db import transaction
 from datetime import datetime, timedelta, date
 from django.http import FileResponse
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.db.models import F, Count, Q, Sum, DecimalField, Value
 from django.core.paginator import Paginator
-from django.db.models.functions import ExtractMonth, ExtractYear, Coalesce, TruncMonth
+from django.db.models.functions import Coalesce, TruncMonth
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -351,7 +352,7 @@ class TipoAcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
 
     model = TipoAcomodacao
     template_name = 'gestao/tipo_acomodacao_list.html'
-    context_object_name = 'page_obj'
+    context_object_name = 'tipo_acomodacao'
     paginate_by = 10
 
     def get_queryset(self):
@@ -411,7 +412,7 @@ class AcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
     model = Acomodacao
     template_name = 'gestao/acomodacao_list.html'
-    context_object_name = 'page_obj'  # O template espera 'page_obj' para paginação
+    context_object_name = 'acomodacoes' 
     paginate_by = 10  # Define quantos itens por página
 
     def get_queryset(self):
@@ -488,7 +489,7 @@ class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'gestao/reserva_list.html'
     context_object_name = 'reservas'
     ordering = ['-data_reserva']
-    paginate_by = 20 
+    paginate_by = 10  
 
     def get_queryset(self):
         # Otimiza a consulta para já buscar os dados relacionados de uma vez
@@ -889,8 +890,8 @@ class ItemEstoqueListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 
     model = ItemEstoque
     template_name = 'gestao/item_estoque_list.html'
-    context_object_name = 'page_obj'
-    paginate_by = 15 # Itens por página
+    context_object_name = 'item_estoque'
+    paginate_by = 10 # Itens por página
 
     def get_queryset(self):
         queryset = super().get_queryset().order_by('nome')
@@ -945,7 +946,7 @@ def compra_estoque_view(request, item_pk):
             compra.save()
             
             # Atualiza a quantidade total do item no estoque
-            item_estoque.quantidade = F('quantidade') + compra.quantidade
+            item_estoque.quantidade += compra.quantidade
             item_estoque.save()
             
             messages.success(request, f"Compra de {compra.quantidade}x '{item_estoque.nome}' registrada com sucesso.")
@@ -981,7 +982,7 @@ def frigobar_detail_view(request, acomodacao_pk):
         # Lógica para verificar se o item já existe e somar a quantidade
         item_existente = frigobar.itemfrigobar_set.filter(item=item_frigobar.item).first()
         if item_existente:
-            item_existente.quantidade = F('quantidade') + item_frigobar.quantidade
+            item_existente.quantidade += item_frigobar.quantidade
             item_existente.save()
         else:
             item_frigobar.save()
@@ -1020,6 +1021,7 @@ def registrar_consumo_view(request, item_frigobar_pk):
     adicionando à conta do hóspede atual e diminuindo do estoque do frigobar.
     """
     item_frigobar = get_object_or_404(ItemFrigobar, pk=item_frigobar_pk)
+    item_estoque = get_object_or_404(ItemEstoque, pk=item_frigobar.item.pk)
     acomodacao = item_frigobar.frigobar.acomodacao
     
     # Encontra a reserva ativa (com check-in feito) para esta acomodação
@@ -1040,14 +1042,18 @@ def registrar_consumo_view(request, item_frigobar_pk):
             )
             
             # Diminui a quantidade no frigobar
-            item_frigobar.quantidade = F('quantidade') - 1
+            item_frigobar.quantidade -= 1
             item_frigobar.save()
+
+            # Diminui a quantidade no estoque geral
+            item_estoque.quantidade -= 1
+            item_estoque.save()
             
             # Atualiza o valor total do consumo na reserva
-            reserva_ativa.valor_consumo = F('valor_consumo') + item_frigobar.item.preco_venda
+            reserva_ativa.valor_consumo += item_frigobar.item.preco_venda
             reserva_ativa.save()
             
-            messages.success(request, f"1x '{item_frigobar.item.nome}' registrado na conta da reserva #{reserva_ativa.pk}.")
+            messages.success(request, f"1x '{item_frigobar.item.nome}' registrado na conta da reserva {reserva_ativa.pk}.")
             
     return redirect('frigobar_detail', acomodacao_pk=acomodacao.pk)
 
@@ -1084,12 +1090,12 @@ def consumo_create_view(request, reserva_pk):
         # Abater item do estoque
         item_estoque = consumo.item
         if item_estoque.quantidade >= consumo.quantidade:
-            item_estoque.quantidade = F('quantidade') - consumo.quantidade
+            item_estoque.quantidade -= consumo.quantidade
             item_estoque.save()
             consumo.save()
             
             # Atualizar valor do consumo na reserva
-            reserva.valor_consumo = F('valor_consumo') + (consumo.quantidade * consumo.preco_unitario)
+            reserva.valor_consumo += (consumo.quantidade * consumo.preco_unitario)
             reserva.save()
 
             messages.success(request, f"{consumo.quantidade}x '{item_estoque.nome}' adicionado(s) à conta.")
@@ -1105,6 +1111,93 @@ def consumo_create_view(request, reserva_pk):
     }
     return render(request, 'gestao/consumo_form.html', context)
 
+class ConsumoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = Consumo
+    form_class = ConsumoUpdateForm
+    template_name = 'gestao/consumo_form.html' # Reutilizaremos o form, mas com contexto diferente
+    context_object_name = 'consumo'
+    permission_required = 'gestao.change_consumo'
+    success_message = "Consumo atualizado com sucesso!"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Adiciona 'is_editing' para o template saber a diferença
+        context['is_editing'] = True
+        return context
+
+    def get_success_url(self):
+        # Volta para a página de detalhes da reserva após a edição
+        return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+
+    def form_valid(self, form):
+        # Usa uma transação para garantir a integridade dos dados
+        with transaction.atomic():
+            # Pega o objeto antigo (antes de salvar) para saber a quantidade original
+            consumo_antigo = self.get_object()
+            quantidade_antiga = consumo_antigo.quantidade
+            valor_antigo = consumo_antigo.total()
+
+            # Salva o formulário para obter a nova quantidade
+            consumo_novo = form.save(commit=False)
+            nova_quantidade = consumo_novo.quantidade
+
+            # Calcula a diferença para ajustar o estoque e o valor
+            diferenca_quantidade = nova_quantidade - quantidade_antiga
+            
+            item_estoque = consumo_novo.item
+            
+            # Validação de estoque
+            if diferenca_quantidade > 0 and item_estoque.quantidade < diferenca_quantidade:
+                messages.error(self.request, f"Não foi possível aumentar o consumo. Estoque insuficiente para '{item_estoque.nome}'.")
+                return self.form_invalid(form)
+
+            # 1. Ajusta o estoque geral (subtrai a diferença)
+            item_estoque.quantidade -= diferenca_quantidade
+            item_estoque.save()
+            
+            # 2. Ajusta o valor do consumo na reserva
+            valor_novo = nova_quantidade * consumo_novo.preco_unitario
+            diferenca_valor = valor_novo - valor_antigo
+            reserva = consumo_novo.reserva
+            reserva.valor_consumo += diferenca_valor
+            reserva.save()
+            
+            # Salva o consumo com a nova quantidade (chama o método padrão)
+            return super().form_valid(form)
+
+class ConsumoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    model = Consumo
+    template_name = 'gestao/consumo_confirm_delete.html'
+    context_object_name = 'consumo'
+    permission_required = 'gestao.delete_consumo'
+    raise_exception = True
+
+    def get_success_url(self):
+        # Continua voltando para a página de detalhes da reserva
+        return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+
+    def form_valid(self, form):
+        # Pega o objeto de consumo que será deletado
+        consumo = self.get_object()
+        reserva = consumo.reserva
+        item_estoque = consumo.item
+        
+        # Usa uma "transação" para garantir a segurança da operação
+        with transaction.atomic():
+            # --- CORREÇÃO APLICADA AQUI ---
+            # 1. Devolve a quantidade ao estoque (cálculo em Python)
+            item_estoque.quantidade += consumo.quantidade
+            item_estoque.save()
+            
+            # 2. Abate o valor do consumo da reserva (cálculo em Python)
+            reserva.valor_consumo -= consumo.total()
+            reserva.save()
+
+        messages.success(self.request, f"Consumo de '{item_estoque.nome}' foi removido com sucesso.")
+        
+        # Deixa a lógica padrão do DeleteView fazer a exclusão e o redirecionamento
+        return super().form_valid(form)
+
 # ==============================================================================
 # === VIEWS PARA FORMA DE PAGAMENTOS                                         ===
 # ==============================================================================
@@ -1114,7 +1207,7 @@ class FormaPagamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
 
     model = FormaPagamento
     template_name = 'gestao/forma_pagamento_list.html'
-    context_object_name = 'page_obj' # Usa page_obj para a paginação
+    context_object_name = 'forma_pagamento' 
     paginate_by = 10 # Define 10 itens por página
     ordering = ['nome'] # Opcional: Garante a ordem alfabética
 
@@ -1172,6 +1265,7 @@ def pagamento_create_view(request, reserva_pk):
             # Se a reserva estava como pré-reserva, muda para confirmada
             if reserva.status == 'pre_reserva':
                 reserva.status = 'confirmada'
+                reserva._change_reason = 'Status alterado para Confirmada devido ao registro de novo pagamento.'
                 reserva.save()
                 # Avisa o usuário que o status mudou
                 messages.info(request, "O status da reserva foi atualizado para 'Confirmada'.")
@@ -1226,7 +1320,7 @@ class VagaEstacionamentoListView(LoginRequiredMixin, PermissionRequiredMixin, Li
 
     model = VagaEstacionamento
     template_name = 'gestao/vaga_estacionamento_list.html'
-    context_object_name = 'page_obj'
+    context_object_name = 'vaga_estacionamento'
     paginate_by = 10 # Define 10 vagas por página
 
     def get_queryset(self):
@@ -1655,7 +1749,7 @@ class CategoriaGastoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
     
     model = CategoriaGasto
     template_name = 'gestao/categoria_gasto_list.html'
-    context_object_name = 'page_obj'
+    context_object_name = 'categoria_gasto'
     paginate_by = 10
     ordering = ['nome']
 

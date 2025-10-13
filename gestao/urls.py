@@ -67,6 +67,8 @@ urlpatterns = [
     # URLs para Frigobar e Consumo
     path('acomodacoes/<int:acomodacao_pk>/frigobar/', views.frigobar_detail_view, name='frigobar_detail'),
     path('frigobar/remover-item/<int:item_frigobar_pk>/', views.remover_item_frigobar, name='remover_item_frigobar'),
+    path('consumo/<int:pk>/excluir/', views.ConsumoDeleteView.as_view(), name='consumo_delete'),
+    path('consumo/<int:pk>/editar/', views.ConsumoUpdateView.as_view(), name='consumo_edit'),
     path('reservas/<int:reserva_pk>/adicionar-consumo/', views.consumo_create_view, name='consumo_add'),
     path('item-frigobar/<int:pk>/editar/', views.ItemFrigobarUpdateView.as_view(), name='editar_item_frigobar'),
     path('item-frigobar/<int:item_frigobar_pk>/registrar-consumo/', views.registrar_consumo_view, name='registrar_consumo_frigobar'),
