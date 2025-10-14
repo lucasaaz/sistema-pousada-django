@@ -1,0 +1,358 @@
+<!-- =============================================================================-->
+<!-- ARQUIVO: templates/gestao/calendario.html                                    -->
+<!-- DESCRIÇÃO: Página com FullCalendar estilizado (tema claro + cores pastel)    -->
+<!-- =============================================================================-->
+{% extends 'base.html' %}
+{% block title %}Calendário de Reservas{% endblock %}
+{% block content %}
+<main class="px-md-4 py-3">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-calendar3 me-2"></i> Calendário de Reservas
+        </h1>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body p-3">
+            <div id="calendario" class="rounded-2" style="min-height:420px;"></div>
+
+            <!-- Legenda de Status (preenchida por JS usando status_colors do contexto) -->
+            <div id="legenda-status" class="mt-3 d-flex flex-wrap gap-2 align-items-center"></div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<!-- FullCalendar -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core/locales-all.global.min.js"></script>
+
+<!-- Exporta status_colors (do contexto) para um script seguro -->
+{{ status_colors|json_script:"status-colors-json" }}
+
+<style>
+    /* --- Tema claro, moderno e espaçado --- */
+    body {
+        background: #f8f9fa;
+        color: #2b3440;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+
+    .card {
+        background: #ffffff;
+    }
+
+    /* FullCalendar: contêiner */
+    #calendario {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 8px;
+        box-shadow: 0 6px 18px rgba(29, 41, 62, 0.06);
+        border: 1px solid rgba(30,41,59,0.04);
+    }
+
+    /* Toolbar */
+    .fc .fc-toolbar-chunk > * {
+        margin-right: 6px;
+    }
+
+    .fc-button {
+        border-radius: 8px !important;
+        border: 1px solid rgba(15,23,42,0.06) !important;
+        background: transparent !important;
+        color: #0f1724 !important;
+        padding: 6px 10px;
+        font-weight: 600;
+    }
+
+    .fc-button:hover {
+        background: rgba(15,23,42,0.04) !important;
+    }
+
+    .fc-toolbar-title {
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        color: #0b1220 !important;
+    }
+
+    /* Resource area */
+    .fc-resource-area {
+        background: #fbfdff !important;
+        border-right: 1px solid rgba(15,23,42,0.04) !important;
+    }
+
+    .fc-col-header-cell {
+        background-color: #fbfdff !important;
+        color: #334155;
+        font-weight: 600;
+    }
+
+    /* Eventos (texto escuro em tons claros) */
+    .fc-event {
+        border: none !important;
+        box-shadow: none !important;
+        font-weight: 600;
+        padding: 4px 6px;
+        border-radius: 8px !important;
+    }
+
+    .fc-event:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px rgba(16,24,40,0.08);
+    }
+
+    /* Legenda */
+    #legenda-status .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .25rem .5rem;
+        border-radius: 6px;
+        background: transparent;
+        border: 1px solid rgba(2,6,23,0.03);
+    }
+
+    #legenda-status .swatch {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusColors = JSON.parse(document.getElementById('status-colors-json').textContent || '{}');
+
+    // Palette fallback (pastéis)
+    const DEFAULT_PASTEL_PALETTE = [
+        '#BEE3F8', // azul claro
+        '#C6F6D5', // verde claro
+        '#FEEBC8', // amarelo claro
+        '#FBCFE8', // rosa claro
+        '#E9D5FF', // roxo claro
+        '#FFDDA6', // pêssego
+        '#CFFAFE', // teal claro
+        '#FFE4D6'  // salmão claro
+    ];
+
+    // --- utilitários de cor (hex) ---
+    function ensureHex(hex) {
+        if (!hex) return '#999999';
+        hex = String(hex).trim();
+        if (hex[0] !== '#') hex = '#' + hex;
+        if (hex.length === 4) { // #abc -> #aabbcc
+            hex = '#' + hex[1]+hex[1] + hex[2]+hex[2] + hex[3]+hex[3];
+        }
+        return hex.toUpperCase();
+    }
+
+    function hexToRgb(hex) {
+        hex = ensureHex(hex).substring(1);
+        return {
+            r: parseInt(hex.substring(0,2),16),
+            g: parseInt(hex.substring(2,4),16),
+            b: parseInt(hex.substring(4,6),16)
+        };
+    }
+
+    function rgbToHex(r,g,b) {
+        return "#" + [r,g,b].map(x => {
+            const s = x.toString(16);
+            return s.length === 1 ? '0' + s : s;
+        }).join('').toUpperCase();
+    }
+
+    // mistura linear entre duas cores (weight: 0..1 para segundo parâmetro)
+    function mixHex(hexA, hexB, weight) {
+        const a = hexToRgb(hexA), b = hexToRgb(hexB);
+        const r = Math.round(a.r * (1 - weight) + b.r * weight);
+        const g = Math.round(a.g * (1 - weight) + b.g * weight);
+        const bl = Math.round(a.b * (1 - weight) + b.b * weight);
+        return rgbToHex(r,g,bl);
+    }
+
+    // Define texto contrastante (escuro se fundo claro)
+    function readableTextColor(hexBg) {
+        const {r,g,b} = hexToRgb(hexBg);
+        const yiq = (r*299 + g*587 + b*114) / 1000;
+        return yiq >= 150 ? '#0b1220' : '#FFFFFF';
+    }
+
+    // Renderiza legenda usando statusColors (convertendo para pastel)
+    function renderLegend() {
+        const container = document.getElementById('legenda-status');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const entries = Object.entries(statusColors || {});
+        if (entries.length === 0) return;
+
+        entries.forEach(([statusKey, baseColor], idx) => {
+            const base = ensureHex(baseColor || DEFAULT_PASTEL_PALETTE[idx % DEFAULT_PASTEL_PALETTE.length]);
+            const swatch = mixHex(base, '#FFFFFF', 0.6); // torna pastel
+            const border = mixHex(base, '#000000', 0.12);
+            const el = document.createElement('div');
+            el.className = 'legend-item';
+            el.innerHTML = `
+                <span class="swatch" style="background: ${swatch}; border: 1px solid ${border};"></span>
+                <small style="color: #0b1220; font-weight:600;">${statusKey}</small>
+            `;
+            container.appendChild(el);
+        });
+    }
+
+    // Inicializa o calendário
+    const calendarioEl = document.getElementById('calendario');
+    const calendario = new FullCalendar.Calendar(calendarioEl, {
+        schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
+        locale: 'pt-br',
+        initialView: 'resourceTimelineWeek',
+        nowIndicator: true,
+        stickyHeaderDates: true,
+        height: 'auto',
+        expandRows: true,
+        resourceAreaWidth: '12%',
+        resourceAreaHeaderContent: 'Acomodações',
+
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
+        },
+
+        // 👇 Configurações específicas de exibição
+        views: {
+            resourceTimelineDay: {
+                slotDuration: { hours: 3 }, // mostra por 3 em 3 horas no modo "dia"
+                slotLabelInterval: { hours: 3 }
+            },
+            resourceTimelineWeek: {
+                slotDuration: { days: 1 }, // ✅ cada coluna = 1 dia
+                slotLabelInterval: { days: 1 },
+                slotMinWidth: 100
+            },
+            resourceTimelineMonth: {
+                slotDuration: { days: 1 },
+                slotLabelInterval: { days: 1 }
+            }
+        },
+
+        slotLabelFormat: { weekday: 'short', day: 'numeric'},
+
+        slotLabelDidMount: function(arg) {
+        // --- Estilo base dos rótulos (dias da semana) ---
+        arg.el.style.fontWeight = '600';
+        arg.el.style.color = '#374151';            // Cinza escuro moderno (legível em fundo claro)
+        arg.el.style.backgroundColor = '#f8f9fa';  // Fundo cinza-claro suave
+        arg.el.style.border = '1px solid #e0e7ff'; // Borda azul bem clarinha
+        arg.el.style.padding = '2px 10px';
+        arg.el.style.textAlign = 'center';
+        arg.el.style.fontSize = '0.9rem';
+        arg.el.style.letterSpacing = '0.3px';
+        arg.el.style.transition = 'all 0.2s ease-in-out';
+
+        // --- Remove o azul e o sublinhado dos links padrão do navegador ---
+        const link = arg.el.querySelector('a');
+        if (link) {
+            link.style.color = '#374151';          // Mesma cor do texto
+            link.style.textDecoration = 'none';    // Remove o sublinhado
+            link.style.fontWeight = '600';
+        }
+
+        // --- Destaque sutil para o dia atual ---
+        if (arg.isToday) {
+            arg.el.style.backgroundColor = '#ede9fe'; // Lilás claro
+            arg.el.style.border = '2px solid #7c3aed'; // Roxo elegante
+            arg.el.style.color = '#4c1d95';
+            arg.el.style.fontWeight = '700';
+            arg.el.style.boxShadow = '0 0 8px rgba(124,58,237,0.25)';
+        }
+
+        // --- Efeito hover suave para dar mais vida ---
+        arg.el.addEventListener('mouseenter', () => {
+            arg.el.style.backgroundColor = '#edf2ff';
+            arg.el.style.color = '#1e40af';
+            if (link) link.style.color = '#1e40af';
+        });
+        arg.el.addEventListener('mouseleave', () => {
+            arg.el.style.backgroundColor = arg.isToday ? '#e7f1ff' : '#f8f9fa';
+            arg.el.style.color = '#374151';
+            if (link) link.style.color = '#374151';
+        });
+        },
+
+        events: function(fetchInfo, successCallback, failureCallback) {
+            fetch("{% url 'api_reservas_calendario' %}")
+                .then(response => response.json())
+                .then(data => {
+                    const eventos = (data.eventos || []).map((e, i) => {
+                        let base = e.color ? ensureHex(e.color) : DEFAULT_PASTEL_PALETTE[(e.resourceId || i) % DEFAULT_PASTEL_PALETTE.length];
+                        base = ensureHex(base);
+                        const bg = mixHex(base, '#FFFFFF', 0.60);
+                        const border = mixHex(base, '#000000', 0.12);
+                        const textColor = readableTextColor(bg);
+
+                        return Object.assign({}, e, {
+                            backgroundColor: bg,
+                            borderColor: border,
+                            textColor: textColor,
+                            display: 'block'
+                        });
+                    });
+
+                    renderLegend();
+                    successCallback(eventos);
+                })
+                .catch(err => {
+                    console.error('Erro ao carregar eventos do calendário:', err);
+                    failureCallback(err);
+                });
+        },
+
+        resources: function(fetchInfo, successCallback, failureCallback) {
+            fetch("{% url 'api_reservas_calendario' %}")
+                .then(response => response.json())
+                .then(data => successCallback(data.recursos || []))
+                .catch(err => {
+                    console.error('Erro ao carregar recursos do calendário:', err);
+                    failureCallback(err);
+                });
+        },
+
+        resourceLabelDidMount: function(arg) {
+            // --- Estilo base dos recursos (acomodações) ---
+            arg.el.style.color = '#374151';            // Cinza escuro moderno
+            arg.el.style.backgroundColor = '#f8f9fa';  // Fundo cinza-claro suave
+            arg.el.style.border = '1px solid #e0e7ff'; // Borda azul bem clarinha
+            arg.el.style.fontSize = '1rem';
+
+            // --- Hover suave ---
+            arg.el.addEventListener('mouseenter', () => {
+                arg.el.style.backgroundColor = '#edf2ff';
+                arg.el.style.color = '#1e40af';
+                if (link) link.style.color = '#1e40af';
+            });
+            arg.el.addEventListener('mouseleave', () => {
+                arg.el.style.backgroundColor = '#f8f9fa';
+                arg.el.style.color = '#374151';
+                if (link) link.style.color = '#374151';
+            });
+        },      
+
+        eventClick: function(info) {
+            info.jsEvent.preventDefault();
+            if (info.event.url) {
+                window.open(info.event.url, "_self");
+            }
+        }
+    });
+
+    calendario.render();
+});
+</script>
+{% endblock %}

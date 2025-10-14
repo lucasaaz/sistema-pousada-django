@@ -83,7 +83,11 @@
                         {% for reserva in page_obj %}
                         <tr class="{% cycle '' 'table-light' %}">
                             <td>
-                                <div class="fw-bold">{{ reserva.cliente.nome_completo }}</div>
+                                <div class="fw-bold"> 
+                                    <a href="{% url 'reserva_detail' reserva.pk %}" class="nav-link">
+                                            {{ reserva.cliente.nome_completo }}
+                                    </a>
+                                </div>
                                 <div class="small text-muted">{{ reserva.cliente.cpf }}</div>
                             </td>
                             <td> {{ reserva.acomodacao.nome_display }}</td>

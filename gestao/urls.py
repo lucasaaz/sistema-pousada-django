@@ -123,4 +123,9 @@ urlpatterns = [
 
     # URL para a API de cálculo de tarifa
     path('api/calcular-tarifa/', views.calcular_tarifa_view, name='api_calcular_tarifa'),
+
+    # URL para o Calendário de Reservas    
+    path('calendario/', views.CalendarioReservasView.as_view(), name='calendario_reservas'),
+    path('api/reservas-calendario/', views.reservas_calendario_api, name='api_reservas_calendario'),
+
 ]

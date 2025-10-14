@@ -77,11 +77,18 @@ class ReservaForm(forms.ModelForm):
             'autocomplete': 'off' # Impede o autocomplete padrão do navegador
         })
     )
+
+    # Campo extra que não pertence ao modelo, para ajudar na busca da tarifa
+    tipo_tarifa = forms.ChoiceField(
+        choices=[('diaria', 'Diária'), ('pacote', 'Pacote')],
+        label="Calcular por",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
     
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
+        fields = ['tipo_tarifa', 'valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
         widgets = {
             'valor_total_diarias': forms.NumberInput(attrs={'class': 'form-control', 'id': 'valor-total-input'}),
             'cliente': forms.HiddenInput(),

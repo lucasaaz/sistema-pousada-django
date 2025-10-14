@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.urls import reverse
 from django.http import JsonResponse
+from django.views.generic import TemplateView
 from django.views.generic import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
@@ -784,6 +785,60 @@ def arquivos_reserva(request, reserva_id):
 def abrir_arquivo(request, arquivo_id):
     arquivo = get_object_or_404(ArquivoReserva, pk=arquivo_id)
     return FileResponse(arquivo.arquivo.open("rb"), as_attachment=False)
+
+# ==============================================================================
+# === View para o calendário de reservas                                     ===
+# ==============================================================================
+
+class CalendarioReservasView(LoginRequiredMixin, TemplateView):
+    template_name = 'gestao/calendario.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = 'Calendário de Reservas'
+        context['status_choices'] = Reserva.STATUS_CHOICES
+        
+        # --- LÓGICA DE CORES ADICIONADA AQUI ---
+        # Cria um mapa de status para cores
+        status_colors = {}
+        reserva_temp = Reserva()
+        for status_key, status_value in Reserva.STATUS_CHOICES:
+            reserva_temp.status = status_key
+            status_colors[status_key] = reserva_temp.status_color
+        
+        context['status_colors'] = status_colors
+        
+        return context
+    
+@login_required
+def reservas_calendario_api(request):
+    # Otimiza a consulta para já buscar os dados do cliente
+    reservas = Reserva.objects.filter(
+        status__in=['pre_reserva', 'confirmada', 'checkin', 'checkout']
+    ).select_related('cliente', 'acomodacao')
+    
+    eventos = []
+    for reserva in reservas:
+        eventos.append({
+            # --- ADICIONE A LINHA 'resourceId' AQUI ---
+            'resourceId': reserva.acomodacao.pk,
+            
+            'title': f"Res. #{reserva.pk} - {reserva.cliente.nome_completo}",
+            'start': reserva.data_checkin.isoformat(),
+            'end': reserva.data_checkout.isoformat(),
+            'color': reserva.status_color,
+            'url': reverse('reserva_detail', args=[reserva.pk])
+        })
+
+    # O resto da sua view (a busca de recursos) continua perfeito.
+    recursos = []
+    for acomodacao in Acomodacao.objects.all().order_by('numero'):
+        recursos.append({
+            'id': acomodacao.pk,
+            'title': acomodacao.nome_display
+        })
+        
+    return JsonResponse({'eventos': eventos, 'recursos': recursos})
 
 # ==============================================================================
 # === VIEWS PARA A GESTÃO DE ESTOQUE                                         ===
