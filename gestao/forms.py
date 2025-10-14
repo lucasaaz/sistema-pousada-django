@@ -3,6 +3,7 @@
 # DESCRIÇÃO: Define os formulários do sistema, seguindo as boas práticas do Django.
 # ==============================================================================
 from django import forms
+from django.utils import timezone
 from django.forms import ModelForm
 from django_select2.forms import Select2Widget
 from django.contrib.auth.models import User, Group
@@ -33,7 +34,8 @@ class ClienteForm(forms.ModelForm):
             'complemento': forms.TextInput(attrs={'class': 'form-control'}),
             'bairro': forms.TextInput(attrs={'class': 'form-control', 'id': 'bairro-input'}),
             'cidade': forms.TextInput(attrs={'class': 'form-control', 'id': 'cidade-input'}),
-            'estado': forms.TextInput(attrs={'class': 'form-control', 'id': 'estado-input'}),          
+            'estado': forms.TextInput(attrs={'class': 'form-control', 'id': 'estado-input'}),     
+            'foto': forms.FileInput(attrs={'class': 'd-none'}),     
         }
 
 # Formulario para Tipos de Acomodação
@@ -76,10 +78,18 @@ class ReservaForm(forms.ModelForm):
         })
     )
     
+    # Campo extra que não pertence ao modelo, para ajudar na busca da tarifa
+    tipo_tarifa = forms.ChoiceField(
+        choices=[('diaria', 'Diária'), ('pacote', 'Pacote')],
+        label="Calcular por",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
+        fields = ['tipo_tarifa', 'valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
         widgets = {
             'valor_total_diarias': forms.NumberInput(attrs={'class': 'form-control', 'id': 'valor-total-input'}),
             'cliente': forms.HiddenInput(),
