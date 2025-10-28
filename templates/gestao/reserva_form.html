@@ -1,5 +1,5 @@
 <!-- ========================================================================== -->
-<!-- ARQUIVO: templates/gestao/reserva_form.html                                -->
+<!-- ARQUIVO: templates/gestao/reserva_form.html (NOVO)                         -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
 {% block title %}{% if object %}Editar Reserva{% else %}Adicionar Reserva{% endif %}{% endblock %}
@@ -9,23 +9,10 @@
         <h1 class="h2">{% if object %}Editar Reserva de {{ object.cliente }}{% else %}Adicionar Nova Reserva{% endif %}</h1>
     </div>
 
-    <!-- 👇 ALERTA: Indicação de que está adicionando ao grupo -->
-    {% if grupo_reserva %}
-    <div class="alert alert-info mb-4">
-        <i class="bi bi-people-fill me-2"></i>
-        <strong>Adicionando acomodação ao grupo:</strong> {{ grupo_reserva.nome_grupo }}
-        <br>
-        <small>Cliente Responsável: {{ grupo_reserva.cliente_responsavel.nome_completo }}</small>
-    </div>
-    {% endif %}
-
     <div class="card shadow-sm">
         <div class="card-body">
             <form method="post" novalidate>
                 {% csrf_token %}
-                
-                <!-- 👇 Campo hidden para o grupo -->
-                {{ form.grupo }}
                 
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger">
@@ -39,8 +26,7 @@
                     <div class="col-7">
                         <div class="col-md-12 position-relative">
                             <label for="{{ form.cliente_busca.id_for_label }}" class="form-label">{{ form.cliente_busca.label }}</label>
-                            {{ form.cliente_busca }} {{ form.cliente }}
-                            <div id="autocomplete-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                            {{ form.cliente_busca }} {{ form.cliente }}       <div id="autocomplete-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
                             {{ form.cliente_busca.errors }}
                             {{ form.cliente.errors }}
                         </div>
@@ -104,16 +90,14 @@
                     </div>
 
                     <div class="col-12"><hr class="my-2"></div>
-                    
+
                     <div class="col-8 mt-2 mx-auto">
                         <div class="card bg-light">
                             <div class="card-body text-center">
                                 <label for="valor-total-input" class="form-label fw-bold">VALOR TOTAL DAS DIÁRIAS (R$)</label>
-                                
                                 {{ form.valor_total_diarias }}
-                                
-                                <small class="text-success" id="detalhamento-calculo"></small>
-                                <small class="text-muted d-block mt-2">(O valor final pode incluir consumos e taxas extras)</small>
+                                <small class.text-muted id="detalhamento-calculo"></small>
+                                <small class="text-muted">(O valor final pode incluir consumos e taxas extras)</small>
                             </div>
                         </div>
                     </div>
@@ -140,9 +124,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkoutInput = document.getElementById('{{ form.data_checkout.id_for_label }}');
     const numAdultosInput = document.getElementById('{{ form.num_adultos.id_for_label }}');
     const numCriancas12Input = document.getElementById('{{ form.num_criancas_12.id_for_label }}');
-    // Pegamos apenas o CAMPO DE INPUT e o detalhamento 
-    const valorInput = document.getElementById('valor-total-input');
-    const detalhamentoDisplay = document.getElementById('detalhamento-calculo');
+
+    const valorDisplay = document.getElementById('valor-total-display');
 
     function calcularTarifa() {
         const acomodacaoId = acomodacaoInput.value;
@@ -150,47 +133,38 @@ document.addEventListener('DOMContentLoaded', function() {
         const checkout = checkoutInput.value;
         const numAdultos = parseInt(numAdultosInput.value) || 0;
         const numCriancas12 = parseInt(numCriancas12Input.value) || 0;
-        // Pega o ID do cliente do campo oculto
-        const clienteIdInput = document.getElementById('{{ form.cliente.id_for_label }}');
-        const clienteId = clienteIdInput.value;
-
-        // Se o cliente ainda não foi selecionado, não calcula
-        if (!clienteId) {
-            return; 
-        }
         
         if (!acomodacaoId || !checkin || !checkout || (numAdultos + numCriancas12) === 0) {
             valorDisplay.textContent = 'R$ 0,00';
             return;
         }
 
-        const url = `{% url 'api_calcular_tarifa' %}?acomodacao_id=${acomodacaoId}&checkin=${checkin}&checkout=${checkout}&num_adultos=${numAdultos}&num_criancas_12=${numCriancas12}&cliente_id=${clienteId}`;
+        const url = `{% url 'api_calcular_tarifa' %}?acomodacao_id=${acomodacaoId}&checkin=${checkin}&checkout=${checkout}&num_adultos=${numAdultos}&num_criancas_12=${numCriancas12}`;
         
         fetch(url)
             .then(response => {
                 if (!response.ok) {
+                    // Se a resposta for um erro (400, 500), joga um erro para o .catch()
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
+                const valorInput = document.getElementById('valor-total-input');
                 if (data.valor_total !== undefined) {
                     valorInput.value = parseFloat(data.valor_total).toFixed(2);
-
-                    if (data.detalhamento && data.detalhamento.length > 0) {
+                    // Bonus: exibe o detalhamento se houver
+                    const detalhamentoDisplay = document.getElementById('detalhamento-calculo');
+                    if (data.detalhamento && detalhamentoDisplay) {
                         detalhamentoDisplay.textContent = data.detalhamento.join(' | ');
-                    } else {
-                        detalhamentoDisplay.textContent = '';
                     }
                 } else {
-                    valorInput.value = '0.00';
-                    detalhamentoDisplay.textContent = 'Não aplicável';
+                    valorDisplay.textContent = 'Não aplicável';
                 }
             })
             .catch(error => {
-                console.error('Erro na chamada da API:', error);
-                valorInput.value = '0.00';
-                detalhamentoDisplay.textContent = 'Erro ao calcular';
+                console.error('Erro na chamada da API de tarifa:', error);
+                valorDisplay.textContent = 'Erro';
             });
     }
 
@@ -209,16 +183,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (buscaInput) {
         buscaInput.addEventListener('keyup', function () {
             const searchTerm = buscaInput.value;
-            resultsDiv.innerHTML = '';
+            resultsDiv.innerHTML = ''; // Limpa resultados antigos
 
             if (searchTerm.length < 2) {
-                return;
+                return; // Só busca com 2+ caracteres
             }
 
+            // Faz a chamada para a nossa API
             fetch(`{% url 'api_buscar_clientes' %}?term=${searchTerm}`)
                 .then(response => response.json())
                 .then(data => {
                     data.forEach(item => {
+                        // Cria um item de lista para cada resultado
                         const a = document.createElement('a');
                         a.href = '#';
                         a.classList.add('list-group-item', 'list-group-item-action');
@@ -226,11 +202,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         a.dataset.id = item.id;
                         resultsDiv.appendChild(a);
 
+                        // Adiciona o evento de clique para selecionar o cliente
                         a.addEventListener('click', function (e) {
                             e.preventDefault();
-                            buscaInput.value = a.textContent;
-                            clienteIdInput.value = a.dataset.id;
-                            resultsDiv.innerHTML = '';
+                            buscaInput.value = a.textContent; // Preenche o campo de busca
+                            clienteIdInput.value = a.dataset.id; // Preenche o campo oculto com o ID
+                            resultsDiv.innerHTML = ''; // Limpa a lista
                         });
                     });
                 });
@@ -246,12 +223,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Pega os campos de input de data
     const checkinInput = document.getElementById('{{ form.data_checkin.id_for_label }}');
     const checkoutInput = document.getElementById('{{ form.data_checkout.id_for_label }}');
 
+    // Pega as strings de data que a view enviou
     const checkinValue = '{{ checkin_para_js|default:"" }}';
     const checkoutValue = '{{ checkout_para_js|default:"" }}';
 
+    // Se o campo e o valor existirem, insere o valor diretamente
     if (checkinInput && checkinValue) {
         checkinInput.value = checkinValue;
     }
