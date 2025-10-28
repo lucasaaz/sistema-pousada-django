@@ -3,6 +3,7 @@ import os
 from django.conf import settings
 from botocore.exceptions import NoCredentialsError, ClientError
 from datetime import timedelta
+from decimal import Decimal
 
 #===================================================================================#
 # ARQUIVO: gestao/utils.py                                                          #
@@ -79,7 +80,7 @@ def calcular_tarifa_completa(chave_de_preco, checkin_date, checkout_date, num_ad
         if chave_de_preco == 'coletivo':
             valor_por_pessoa = regras_periodo.get('por_pessoa', 0)
             valor_adultos = num_adultos * valor_por_pessoa
-            valor_criancas = num_criancas_12 * (valor_por_pessoa / 2)
+            valor_criancas = num_criancas_12 * (valor_por_pessoa * Decimal('0.5'))
             valor_diaria = valor_adultos + valor_criancas
         else:
             # --- LÓGICA REFINADA PARA ADULTOS E CRIANÇAS ---
@@ -104,7 +105,7 @@ def calcular_tarifa_completa(chave_de_preco, checkin_date, checkout_date, num_ad
                 
                 # Soma o valor das crianças extras (pagam 50%)
                 if criancas_extras > 0:
-                    valor_diaria += criancas_extras * (valor_acrescimo / 2)
+                    valor_diaria += criancas_extras * (valor_acrescimo * Decimal('0.5'))
 
         valor_total_calculado += valor_diaria
 

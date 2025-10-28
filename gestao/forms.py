@@ -6,9 +6,10 @@ from django import forms
 from django.utils import timezone
 from django.forms import ModelForm
 from django_select2.forms import Select2Widget
+from django_select2.forms import Select2MultipleWidget
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
-from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto, ArquivoReserva, CompraEstoque
+from .models import Cliente, Acomodacao, TipoAcomodacao, Reserva, ItemEstoque, ItemFrigobar, Consumo, FormaPagamento, Pagamento, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto, ArquivoReserva, CompraEstoque, PeriodoTarifario, GrupoReserva, Espaco, Evento, CustoEvento
 
 # Formulário para Clientes
 class ClienteForm(forms.ModelForm):
@@ -64,6 +65,17 @@ class AcomodacaoForm(forms.ModelForm):
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
         }
 
+# Formulario para Reservas em Grupos
+class GrupoReservaForm(forms.ModelForm):
+    class Meta:
+        model = GrupoReserva
+        fields = ['nome_grupo', 'cliente_responsavel', 'observacoes']
+        widgets = {
+            'nome_grupo': forms.TextInput(attrs={'class': 'form-control'}),
+            'cliente_responsavel': Select2Widget(attrs={'class': 'form-select'}),
+            'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
 # Formulario para Reservas
 class ReservaForm(forms.ModelForm):
 
@@ -82,15 +94,17 @@ class ReservaForm(forms.ModelForm):
     tipo_tarifa = forms.ChoiceField(
         choices=[('diaria', 'Diária'), ('pacote', 'Pacote')],
         label="Calcular por",
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        required=False
     )
     
     
     """Formulário para criar e editar Reservas."""
     class Meta:
         model = Reserva
-        fields = ['tipo_tarifa', 'valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status']
+        fields = ['grupo', 'tipo_tarifa','valor_total_diarias', 'cliente_busca', 'cliente', 'acomodacao', 'placa_automovel', 'data_checkin', 'data_checkout', 'num_adultos', 'num_criancas_5', 'num_criancas_12', 'status'] # Atualizado 18.09.25
         widgets = {
+            'grupo': forms.HiddenInput(),
             'valor_total_diarias': forms.NumberInput(attrs={'class': 'form-control', 'id': 'valor-total-input'}),
             'cliente': forms.HiddenInput(),
             'acomodacao': forms.Select(attrs={'class': 'form-select'}),
@@ -223,7 +237,7 @@ class PagamentoForm(forms.ModelForm):
         widgets = {
             'forma_pagamento': forms.Select(attrs={'class': 'form-select'}),
             'valor': forms.NumberInput(attrs={'class': 'form-control'}),
-            'data_pagamento': forms.DateInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
+            'data_pagamento': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
         }
 
 # Formulários para Forma de Pagamentos
@@ -233,15 +247,6 @@ class FormaPagamentoForm(forms.ModelForm):
         fields = ['nome']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-        }
-
-class PagamentoForm(forms.ModelForm):
-    class Meta:
-        model = Pagamento
-        fields = ['forma_pagamento', 'valor']
-        widgets = {
-            'forma_pagamento': forms.Select(attrs={'class': 'form-select'}),
-            'valor': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 # Formulário para Vagas de Estacionamento
@@ -309,7 +314,7 @@ class CategoriaGastoForm(forms.ModelForm):
 class GastoForm(ModelForm):
     class Meta:
         model = Gasto
-        fields = ['descricao', 'valor', 'categoria']
+        fields = ['descricao', 'valor', 'categoria', 'data_gasto']
         widgets = {
             'descricao': forms.TextInput(attrs={'class': 'form-control'}),
             'valor': forms.NumberInput(attrs={'class': 'form-control'}),
@@ -321,3 +326,88 @@ class ArquivoReservaForm(forms.ModelForm):
     class Meta:
         model = ArquivoReserva
         fields = ["arquivo"]
+
+# Formulário para Periodo Tarifario
+class PeriodoTarifarioForm(forms.ModelForm):
+    class Meta:
+        model = PeriodoTarifario
+        fields = ['nome', 'data_inicio', 'data_fim', 'percentual_ajuste', 'ativo', 'acomodacoes', 'clientes']
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control'}),
+            'data_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_fim': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'percentual_ajuste': forms.NumberInput(attrs={'class': 'form-control'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'acomodacoes': Select2MultipleWidget,
+            'clientes': Select2MultipleWidget,
+        }
+
+# Formulário para Espaço
+class EspacoForm(forms.ModelForm):
+    class Meta:
+        model = Espaco
+        fields = ['tipo', 'nome', 'descricao', 'capacidade', 'valor_base', 'ativo']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'nome': forms.TextInput(attrs={'class': 'form-control'}),
+            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'capacidade': forms.NumberInput(attrs={'class': 'form-control'}),
+            'valor_base': forms.NumberInput(attrs={'class': 'form-control'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+# Formulário para Evento
+class EventoForm(forms.ModelForm):
+    class Meta:
+        model = Evento
+        # Lista de campos que o usuário poderá preencher
+        fields = [
+            'nome_evento', 
+            'cliente', 
+            'espacos',
+            'data_inicio', 
+            'data_fim', 
+            'numero_convidados', 
+            'valor_negociado', 
+            'status', 
+            'observacoes'
+        ]
+        # Configuração dos widgets para estilização com Bootstrap
+        widgets = {
+            'nome_evento': forms.TextInput(attrs={'class': 'form-control'}),
+            'cliente': Select2Widget(attrs={'class': 'form-select'}),
+            'espacos': Select2MultipleWidget(attrs={'class': 'form-select'}),
+            'data_inicio': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'},format='%Y-%m-%dT%H:%M'),
+            'data_fim': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'},format='%Y-%m-%dT%H:%M'),
+            'numero_convidados': forms.NumberInput(attrs={'class': 'form-control'}),
+            'valor_negociado': forms.NumberInput(attrs={'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+        }
+
+# Formulário para Custo Evento
+class CustoEventoForm(forms.ModelForm):
+    class Meta:
+        model = CustoEvento
+        fields = ['descricao', 'valor', 'data_custo']
+        widgets = {
+            'descricao': forms.TextInput(attrs={'class': 'form-control'}),
+            'valor': forms.NumberInput(attrs={'class': 'form-control'}),
+            'data_custo': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
+            'evento': forms.HiddenInput(), # O campo evento é oculto
+        }
+
+# Formulário para Pagamento Evento
+class PagamentoEventoForm(forms.ModelForm):
+    class Meta:
+        model = Pagamento
+        fields = ['forma_pagamento', 'valor', 'data_pagamento', 'evento']
+        widgets = {
+            'forma_pagamento': forms.Select(attrs={'class': 'form-select'}),
+            'valor': forms.NumberInput(attrs={'class': 'form-control'}),
+            'data_pagamento': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
+            'evento': forms.HiddenInput(),
+        }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['evento'].required = False

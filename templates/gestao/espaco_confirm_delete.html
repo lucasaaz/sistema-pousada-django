@@ -1,0 +1,105 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/espaco_confirm_delete.html                       -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Confirmar Exclusão{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Excluir Espaço ou Item Alugável</h1>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir "<strong>{{ object.nome }}</strong>"?</p>
+            <p class="text-danger">Esta ação não pode ser desfeita.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <a href="{% url 'espaco_list' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Sim, tenho certeza</button>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}
+{% block scripts %}
+{{ block.super }}
+<style>
+    :root {
+        --bs-primary-soft: #e7f1ff;
+        --bs-success-soft: #e5f8f0;
+        --bs-danger-soft: #fce8e9;
+        --bs-info-soft: #e3f6f8;
+        --bs-warning-soft: #fff8e1;
+        --bs-secondary-soft: #f8f9fa;
+        --bs-font-sans-serif: 'Poppins', sans-serif;
+    }
+
+    body {
+        background-color: #f8f9fa;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .card {
+        border: none;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .card.mudar-cor {
+        background-color: #fcfcfc;
+    }
+    
+    .card.card-indicator {
+        border-left-width: 4px;
+        border-left-style: solid;
+    }
+    .card-indicator-primary { border-color: var(--bs-primary); }
+    .card-indicator-success { border-color: var(--bs-success); }
+    .card-indicator-info { border-color: var(--bs-info); }
+    .card-indicator-warning { border-color: var(--bs-warning); }
+
+
+    .shadow {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 1.5rem rgba(0, 0, 0, 0.12) !important;
+    }
+    
+    .text-gray-300 { color: #dddfeb !important; }
+
+    .text-xs { font-size: 0.7rem; }
+    
+    .bg-primary-soft { background-color: var(--bs-primary-soft); }
+    .bg-success-soft { background-color: var(--bs-success-soft); }
+    .bg-danger-soft { background-color: var(--bs-danger-soft); }
+    .bg-secondary-soft { background-color: var(--bs-secondary-soft); }
+
+
+    .nav-pills .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+        border-radius: 0.5rem;
+    }
+
+    .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+        color: #fff;
+        background-color: var(--bs-primary);
+    }
+    
+    .badge {
+        font-weight: 600;
+        padding: 0.4em 0.7em;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+</style>
+{% endblock %}

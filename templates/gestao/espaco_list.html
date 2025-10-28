@@ -1,0 +1,195 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/espaco_list.html                                 -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Gerenciar Espaços e Itens{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Gerenciar Espaços e Itens Alugáveis</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'eventos_dashboard' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+            <a href="{% url 'espaco_add' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i> Adicionar Novo
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome do Espaço/Item</th>
+                            <th>Tipo</th>
+                            <th>Capacidade</th>
+                            <th>Valor Base (R$)</th>
+                            <th>Status</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for espaco in espacos %}
+                        <tr class="{% cycle '' 'table-light' %}">
+                            <td class="fw-bold">{{ espaco.nome }}</td>
+                            <td>{{ espaco.get_tipo_display }}</td>
+                            <td>
+                                {% if espaco.capacidade %}
+                                    {{ espaco.capacidade }} pessoas
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ espaco.valor_base|floatformat:2 }}</td>
+                            <td>
+                                {% if espaco.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'espaco_edit' espaco.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'espaco_delete' espaco.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                            <td colspan="6" class="text-center py-4">Nenhum espaço ou item cadastrado.</td>
+                        </tr>
+                        {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="card-footer bg-light border-top shadow-sm">
+            <nav aria-label="Navegação das acomodações">
+                <ul class="pagination justify-content-center mb-0 mt-2 flex-wrap">
+
+                    {% if page_obj.has_previous %}
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-3 shadow-sm border-0 text-secondary fw-semibold"
+                            href="?page=1{% if params %}&{{ params }}{% endif %}">
+                                <i class="bi bi-chevron-double-left"></i> Primeira
+                            </a>
+                        </li>
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-3 shadow-sm border-1 text-secondary fw-semibold"
+                            href="?page={{ page_obj.previous_page_number }}{% if params %}&{{ params }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i> Anterior
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item disabled mx-1">
+                        <span class="page-link rounded-pill border-1 shadow-sm fw-semibold">
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-3 shadow-sm border-0 text-secondary fw-semibold"
+                            href="?page={{ page_obj.next_page_number }}{% if params %}&{{ params }}{% endif %}">
+                                Próxima <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item mx-1">
+                            <a class="page-link rounded-pill px-3 shadow-sm border-1 text-secondary fw-semibold"
+                            href="?page={{ page_obj.paginator.num_pages }}{% if params %}&{{ params }}{% endif %}">
+                                Última <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<style>
+    :root {
+        --bs-primary-soft: #e7f1ff;
+        --bs-success-soft: #e5f8f0;
+        --bs-danger-soft: #fce8e9;
+        --bs-info-soft: #e3f6f8;
+        --bs-warning-soft: #fff8e1;
+        --bs-secondary-soft: #f8f9fa;
+        --bs-font-sans-serif: 'Poppins', sans-serif;
+    }
+
+    body {
+        background-color: #f8f9fa;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .card {
+        border: none;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .card.mudar-cor {
+        background-color: #fcfcfc;
+    }
+    
+    .card.card-indicator {
+        border-left-width: 4px;
+        border-left-style: solid;
+    }
+    .card-indicator-primary { border-color: var(--bs-primary); }
+    .card-indicator-success { border-color: var(--bs-success); }
+    .card-indicator-info { border-color: var(--bs-info); }
+    .card-indicator-warning { border-color: var(--bs-warning); }
+
+
+    .shadow {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 1.5rem rgba(0, 0, 0, 0.12) !important;
+    }
+    
+    .text-gray-300 { color: #dddfeb !important; }
+
+    .text-xs { font-size: 0.7rem; }
+    
+    .bg-primary-soft { background-color: var(--bs-primary-soft); }
+    .bg-success-soft { background-color: var(--bs-success-soft); }
+    .bg-danger-soft { background-color: var(--bs-danger-soft); }
+    .bg-secondary-soft { background-color: var(--bs-secondary-soft); }
+
+
+    .nav-pills .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+        border-radius: 0.5rem;
+    }
+
+    .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+        color: #fff;
+        background-color: var(--bs-primary);
+    }
+    
+    .badge {
+        font-weight: 600;
+        padding: 0.4em 0.7em;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+</style>
+{% endblock %}

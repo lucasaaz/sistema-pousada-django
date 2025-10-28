@@ -1,17 +1,17 @@
 <!-- ========================================================================== -->
-<!-- ARQUIVO: templates/gestao/pagamento_confirm_delete.html                    -->
+<!-- ARQUIVO: templates/gestao/custo_confirm_delete.html                        -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
-{% block title %}Confirmar Exclusão{% endblock %}
+{% block title %}Confirmar Exclusão de Custo{% endblock %}
 {% block content %}
 <main class="px-md-4">
     <div class="pt-3 pb-2 mb-3 border-bottom"><h1 class="h2">Confirmar Exclusão</h1></div>
     <div class="card shadow-sm">
         <div class="card-body">
-            <p>Tem certeza que deseja excluir o pagamento de <strong>R$ {{ object.valor|floatformat:2 }}</strong> realizado em <strong>{{ object.data_pagamento|date:"d/m/Y" }}</strong>?</p>
+            <p>Tem certeza que deseja excluir o custo "<strong>{{ object.descricao }}</strong>" no valor de <strong>R$ {{ object.valor|floatformat:2 }}</strong>?</p>
             <form method="post">
                 {% csrf_token %}
-                <a href="{% if object.evento %}{% url 'evento_detail' object.evento.pk %}{% else %}{% url 'reserva_detail' pagamento.reserva.pk %}{% endif %}" class="btn btn-secondary">Cancelar</a>
+                <a href="{% url 'evento_detail' evento.pk %}" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-danger">Sim, excluir</button>
             </form>
         </div>

@@ -1,29 +1,58 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/gasto_form.html                                  -->
+<!-- ========================================================================== -->
 {% extends 'base.html' %}
-{% block title %}Editar Gasto{% endblock %}
+{% block title %}{% if object %}Editar Gasto{% else %}Adicionar Gasto{% endif %}{% endblock %}
 {% block content %}
 <main class="px-md-4">
-    <div class="pt-3 pb-2 mb-3 border-bottom"><h1 class="h2">Editar Gasto</h1></div>
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h2">{% if object %}Editar Gasto{% else %}Adicionar Gasto{% endif %}</h1>
+            {% if evento %}
+                <h2 class="h5 text-muted">Para o Evento: {{ evento.nome_evento }}</h2>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-body">
             <form method="post">
                 {% csrf_token %}
-                <div class="row g-3">
-                    <div class="col-12">
+                
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                {{ form.evento }}
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
                         <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
                         {{ form.descricao }}
+                        {% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors }}</div>{% endif %}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4 mb-3">
                         <label for="{{ form.valor.id_for_label }}" class="form-label">{{ form.valor.label }}</label>
                         {{ form.valor }}
+                        {% if form.valor.errors %}<div class="text-danger small mt-1">{{ form.valor.errors }}</div>{% endif %}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4 mb-3">
                         <label for="{{ form.categoria.id_for_label }}" class="form-label">{{ form.categoria.label }}</label>
                         {{ form.categoria }}
+                        {% if form.categoria.errors %}<div class="text-danger small mt-1">{{ form.categoria.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.data_gasto.id_for_label }}" class="form-label">{{ form.data_gasto.label }}</label>
+                        {{ form.data_gasto }}
+                        {% if form.data_gasto.errors %}<div class="text-danger small mt-1">{{ form.data_gasto.errors }}</div>{% endif %}
                     </div>
                 </div>
-                <div class="card-footer bg-white text-end px-0 pt-4 mt-2">
-                    <a href="{% url 'financeiro' %}" class="btn btn-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+
+                <hr>
+                
+                <div class="text-end">
+                    <a href="{% if evento %}{% url 'evento_detail' evento.pk %}{% else %}{% url 'financeiro' %}{% endif %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
                 </div>
             </form>
         </div>

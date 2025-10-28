@@ -1,108 +1,122 @@
 <!-- ==========================================================================-->
-<!-- ARQUIVO: templates/gestao/financeiro_dashboard.html (REFATORADO)          -->
+<!-- ARQUIVO: templates/gestao/financeiro_dashboard.html                       -->
 <!-- DESCRIÇÃO: Gestão financeira da pousada (com base.html).                  -->
 <!-- ==========================================================================-->
 {% extends 'base.html' %}
+{% load humanize %} {# Certifique-se que humanize está carregado #}
 
 {% block title %}Painel Financeiro{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4">
-    <h1 class="h2 mb-4">Controle Financeiro</h1>
-
-    <div class="row g-2">
-        <div class="col-md-6">
-            <!-- Formulário de filtro por período -->
-            <form method="get" class="mb-4 d-flex gap-2 align-items-end flex-wrap">
-                <div>
-                    <label class="form-label small">Início</label>
-                    <input type="date" name="start" value="{{ start|date:'Y-m-d' }}" class="form-control"/>
+    <div class="row mb-12">
+        <div class="col-md-6 mb-6 d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <h1 class="dashboard-header">Controle Financeiro</h1>
+        </div>
+    
+        <!-- Filtros -->
+        <div class="col-md-6 mb-6 card shadow-sm mb-4 p-3 border-0">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="start_date" class="form-label text-muted fw-semibold">De:</label>
+                    <input type="date" name="start" id="start_date" class="form-control" value="{{ start_date }}">
                 </div>
-                <div>
-                    <label class="form-label small">Fim</label>
-                    <input type="date" name="end" value="{{ end|date:'Y-m-d' }}" class="form-control"/>
+                <div class="col-md-5">
+                    <label for="end_date" class="form-label text-muted fw-semibold">Até:</label>
+                    <input type="date" name="end" id="end_date" class="form-control" value="{{ end_date }}">
                 </div>
-                <button class="btn btn-primary h-10">Filtrar</button>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Filtrar</button>
+                    {% if request.GET.start or request.GET.end %}
+                    <a href="{% url 'financeiro' %}" class="btn btn-light border mt-1 btn-sm">
+                        <i class="bi bi-x-circle"></i> Limpar
+                    </a>
+                    {% endif %}
+                </div>
+                <span class="text-muted small">Atualizado em {% now "d/m/Y" %}</span>
             </form>
         </div>
+    </div>
 
-        <div class="col-md-6">
-            <!-- Resumo de reservas -->
-            <div class="bg-white p-4 rounded-lg d-flex justify-content-between align-items-center mb-4 shadow-sm">
-                <div>
-                    <p class="text-muted small mb-1">Reservas finalizadas</p>
-                    <p class="h3 mb-0">{{ reservas_no_periodo }}</p>
+    <!-- Métricas -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="bg-success-subtle card text-center shadow-sm p-3">
+                <div class="metric-icon text-success mb-2"><i class="bi bi-arrow-up-circle"></i></div>
+                <div class="metric-value text-success">R$ {{ total_recebido|intcomma }}</div>
+                <div class="metric-label">Receita Total</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="bg-danger-subtle card text-center shadow-sm p-3">
+                <div class="metric-icon text-danger mb-2"><i class="bi bi-arrow-down-circle"></i></div>
+                <div class="metric-value text-danger">R$ {{ total_despesas|intcomma }}</div>
+                <div class="metric-label">Despesa Total</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="{% if lucro_liquido >= 0 %}bg-primary-subtle{% else %}bg-warning-subtle{% endif %} card text-center shadow-sm p-3">
+                <div class="metric-icon {% if lucro_liquido >= 0 %}text-primary{% else %}text-warning{% endif %} mb-2">
+                    <i class="bi bi-graph-up-arrow"></i>
                 </div>
-                <i class="bi bi-journal-check fs-2 text-secondary"></i>
+                <div class="metric-value {% if lucro_liquido >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                    R$ {{ lucro_liquido|floatformat:2 }}
+                </div>
+                <div class="metric-label">Lucro Líquido</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center shadow-sm p-3" style="background-color: rgba(166, 61, 252, 0.226);">
+                <div class="metric-icon mb-2" style="color: #7b3ff3;"><i class="bi bi-cash-stack"></i></div>
+                <div class="metric-value" style="color: #7b3ff3;">R$ {{ ticket_medio|floatformat:2 }}</div>
+                <div class="metric-label">Ticket Médio</div>
             </div>
         </div>
     </div>
 
-    <!-- Resumo Financeiro do Mês -->
-    <div class="bg-white p-4 rounded-lg shadow-sm mb-5">
-        <h2 class="h5 mb-4">Resumo do Mês</h2>
-        <div class="row g-3">
-            <!-- Receita Total -->
-            <div class="col-md-4">
-                <div class="bg-success-subtle p-3 rounded d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="text-success small mb-1">Receita Total</p>
-                        <p class="h4 mb-0">R$ {{ total_entradas_caixa|floatformat:2 }}</p>
-                    </div>
-                    <i class="bi bi-currency-dollar fs-2 text-success"></i>
+    <!-- Gráficos -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm chart-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 card-title fw-bold">
+                        <i class="bi bi-bar-chart-line me-2"></i> Fluxo de Caixa Mensal
+                    </h6>
                 </div>
-            </div>
-            <!-- Despesas Totais -->
-            <div class="col-md-4">
-                <div class="bg-danger-subtle p-3 rounded d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="text-danger small mb-1">Despesas Totais</p>
-                        <p class="h4 mb-0">R$ {{ despesas_total_periodo|floatformat:2 }}</p>
-                    </div>
-                    <i class="bi bi-credit-card-2-front fs-2 text-danger"></i>
-                </div>
-            </div>
-            <!-- Lucro/Prejuízo -->
-            <div class="col-md-4">
-                <div class="{% if lucro_caixa_periodo >= 0 %}bg-primary-subtle{% else %}bg-warning-subtle{% endif %} p-3 rounded d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="small mb-1 {% if lucro_caixa_periodo >= 0 %}text-primary{% else %}text-warning{% endif %}">
-                            Lucro/Prejuízo
-                        </p>
-                        <p class="h4 mb-0 {% if lucro_caixa_periodo >= 0 %}text-primary{% else %}text-warning{% endif %}">
-                            R$ {{ lucro_caixa_periodo|floatformat:2 }}
-                        </p>
-                    </div>
-                    <i class="bi bi-cash-stack fs-2 {% if lucro_caixa_periodo >= 0 %}text-primary{% else %}text-warning{% endif %}"></i>
+                <div class="card-body">
+                    <canvas id="fluxoCaixaChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Gráficos Fluxo de Caixa e Receita por Categoria -->
-    <div class="row g-4 mb-5">
-        <div class="col-md-6">
-            <h5 class="mb-2">Fluxo de Caixa (Mensal)</h5>
-            <canvas id="linhaFluxo" height="220"></canvas>
+    <!-- Três gráficos menores -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm chart-card">
+                <div class="card-header fw-semibold"><i class="bi bi-building"></i> Receita por Origem</div>
+                <div class="card-body"><canvas id="receitaOrigemChart"></canvas></div>
+            </div>
         </div>
-        <div class="col-md-6">
-            <h5 class="mb-2">Receita por Categoria</h5>
-            <canvas id="pizzaCategoria" height="220"></canvas>
-            <ul class="list-unstyled small mt-3 mb-0">
-                <li>Quartos: <strong>R$ {{ receita_quartos|floatformat:2 }}</strong></li>
-                <li>Consumo: <strong>R$ {{ receita_consumo|floatformat:2 }}</strong></li>
-                <li>Outros: <strong>R$ {{ receita_outros|floatformat:2 }}</strong></li>
-                <li class="mt-1 text-muted">Total: R$ {{ total_receita_competencia|floatformat:2 }}</li>
-            </ul>
+        <div class="col-md-4">
+            <div class="card shadow-sm chart-card">
+                <div class="card-header fw-semibold"><i class="bi bi-pie-chart"></i> Despesas por Categoria</div>
+                <div class="card-body"><canvas id="despesaCategoriaChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm chart-card">
+                <div class="card-header fw-semibold"><i class="bi bi-wallet2"></i> Receita por Forma de Pagamento</div>
+                <div class="card-body"><canvas id="receitaFormaPagChart"></canvas></div>
+            </div>
         </div>
     </div>
 
-    <!-- Inclusão de Gasto -->
     <div class="row">
         <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm h-100">
+             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 fw-bold text-primary">Adicionar Gasto</h6>
+                    <h6 class="mb-0 card-title fw-bold">Adicionar Gasto</h6>
                     <a href="{% url 'categoria_gasto_list' %}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Gerenciar Categorias de Gasto">
                         <i class="bi bi-gear-fill"></i> Gerenciar Categorias
                     </a>
@@ -111,22 +125,7 @@
                     {% if gasto_form.fields.categoria.queryset.exists %}
                         <form method="post" action="{% url 'financeiro' %}" class="row g-3">
                             {% csrf_token %}
-                            <div class="col-md-12">
-                                <label for="{{ gasto_form.descricao.id_for_label }}" class="form-label small">{{ gasto_form.descricao.label }}</label>
-                                {{ gasto_form.descricao }}
-                            </div>
-                            <div class="col-md-6">
-                                <label for="{{ gasto_form.valor.id_for_label }}" class="form-label small">{{ gasto_form.valor.label }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">R$</span>
-                                    {{ gasto_form.valor }}
-                                </div>
-                                <div class="form-text small">{{ gasto_form.valor.help_text }}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="{{ gasto_form.categoria.id_for_label }}" class="form-label small">{{ gasto_form.categoria.label }}</label>
-                                {{ gasto_form.categoria }}
-                            </div>
+                            {{ gasto_form.as_p }} {# Simplificado com as_p, ajuste se precisar de mais controle #}
                             <div class="col-12 d-grid pt-2">
                                 <button class="btn btn-primary" type="submit">Lançar Gasto</button>
                             </div>
@@ -142,30 +141,24 @@
             </div>
         </div>
         <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-light"><h6 class="m-0 fw-bold text-primary">Últimos Gastos Lançados</h6></div>
+             <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><h6 class="mb-0 card-title fw-bold">Últimos Gastos Lançados</h6></div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
                         {% for gasto in gastos_recentes %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
                                 <div class="fw-bold">{{ gasto.descricao }}</div>
-                                <small class="text-muted">{{ gasto.get_categoria_display }} | {{ gasto.data_gasto|date:"d/m/Y" }}</small>
+                                <small class="text-muted">{{ gasto.categoria.nome|default:"Sem Categoria" }} | {{ gasto.data_gasto|date:"d/m/Y" }}</small>
                             </div>
-                            
                             <div class="d-flex align-items-center">
-                                <span class="fw-bold text-danger me-3">- R$ {{ gasto.valor|floatformat:2 }}</span>
-                                
+                                <span class="fw-bold text-danger me-3">- R$ {{ gasto.valor|intcomma }}</span>
                                 <div class="btn-group">
                                     {% if perms.gestao.change_gasto %}
-                                    <a href="{% url 'gasto_edit' gasto.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar Gasto">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
+                                    <a href="{% url 'gasto_edit' gasto.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar Gasto"><i class="bi bi-pencil"></i></a>
                                     {% endif %}
                                     {% if perms.gestao.delete_gasto %}
-                                    <a href="{% url 'gasto_delete' gasto.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Excluir Gasto">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
+                                    <a href="{% url 'gasto_delete' gasto.pk %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Excluir Gasto"><i class="bi bi-trash"></i></a>
                                     {% endif %}
                                 </div>
                             </div>
@@ -179,74 +172,256 @@
         </div>
     </div>
 
-    <!-- Dados JSON para gráficos -->
-    {{ fluxo_caixa_mensal|json_script:"fluxo-data" }}
-    {{ receita_por_categoria|json_script:"categoria-data" }}
+    {{ fluxo_chart_json|json_script:"fluxo-chart-data" }}
+    {{ receita_origem_json|json_script:"receita-origem-data" }}
+    {{ despesa_categoria_json|json_script:"despesa-categoria-data" }}
+    {{ receita_forma_pag_json|json_script:"receita-forma-pag-data" }}
 </div>
 {% endblock %}
 
 {% block scripts %}
+{{ block.super }} 
 
 <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-    .main-container { display: flex; flex: 1; }
-    .sidebar { width: 280px; background-color: #f8f9fa; border-right: 1px solid #dee2e6; }
-    .content { flex: 1; padding: 2rem; }
-    .sidebar .nav-link { color: #333; }
-    .sidebar .nav-link.active, .sidebar .nav-link:hover { color: #007bff; background-color: #e9ecef; }
+
+    :root {
+        --bs-primary-soft: #e7f1ff;
+        --bs-success-soft: #e5f8f0;
+        --bs-danger-soft: #fce8e9;
+        --bs-info-soft: #e3f6f8;
+        --bs-warning-soft: #fff8e1;
+        --bs-secondary-soft: #f8f9fa;
+        --bs-font-sans-serif: 'Poppins', sans-serif;
+    }
+
+    body {
+        background-color: #f3f4f6;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .card {
+        border: none;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .card.mudar-cor {
+        background-color: #fcfcfc;
+    }
+    
+    .card.card-indicator {
+        border-left-width: 4px;
+        border-left-style: solid;
+    }
+    .card-indicator-primary { border-color: var(--bs-primary); }
+    .card-indicator-success { border-color: var(--bs-success); }
+    .card-indicator-info { border-color: var(--bs-info); }
+    .card-indicator-warning { border-color: var(--bs-warning); }
+
+
+    .shadow {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 1.5rem rgba(0, 0, 0, 0.12) !important;
+    }
+    
+    .text-gray-300 { color: #dddfeb !important; }
+
+    .text-xs { 
+        font-size: 1rem;
+        color: #646464;
+    }
+    
+    .bg-primary-soft { background-color: var(--bs-primary-soft); }
+    .bg-success-soft { background-color: var(--bs-success-soft); }
+    .bg-danger-soft { background-color: var(--bs-danger-soft); }
+    .bg-secondary-soft { background-color: var(--bs-secondary-soft); }
+
+
+    .nav-pills .nav-link {
+        color: #6c757d;
+        font-weight: 400;
+        border-radius: 0.5rem;
+    }
+
+    .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+        color: #fff;
+        background-color: var(--bs-primary);
+    }
+    
+    .badge {
+        font-weight: 600;
+        padding: 0.4em 0.7em;
+    }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: center; /* centraliza horizontalmente */
+        align-items: center;     /* centraliza verticalmente */
+        padding: 0px 0px 0px 80px;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    .metric-icon {
+        font-size: 1.8rem;
+        opacity: 0.8;
+    }
+
+    .metric-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+
+    .metric-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .chart-card {
+        position: relative;
+        height: auto;
+        min-height: 200px;
+    }
+
+    .chart-card canvas {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    .list-group-item {
+        border: none;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: #f8f9fa;
+    }
+
+    /* Tooltip mais bonito */
+    [data-bs-toggle="tooltip"] {
+        cursor: pointer;
+    }
 </style>
 
 <script>
-  const fluxoData = JSON.parse(document.getElementById('fluxo-data').textContent || '[]');
-  const categoriaData = JSON.parse(document.getElementById('categoria-data').textContent || '[]');
+document.addEventListener('DOMContentLoaded', function () {
 
-  // Gráfico de linha: Receita vs Despesa
-  const ctxLinha = document.getElementById('linhaFluxo')?.getContext('2d');
-  if (ctxLinha && fluxoData.length) {
-    const labels = fluxoData.map(p => p.label);
-    const receitas = fluxoData.map(p => p.receita);
-    const despesas = fluxoData.map(p => p.despesa);
+    // === NOVO: Objeto para armazenar as instâncias dos gráficos ===
+    const charts = {};
+    
+    // Função auxiliar para criar gráficos com depuração extra
+    function createChart(canvasId, jsonDataId, chartConfig, noDataMessage) {
+        const ctx = document.getElementById(canvasId)?.getContext('2d');
+        const jsonScriptElement = document.getElementById(jsonDataId);
+        let parsedData = null; // Renomeado para clareza
+        let parseError = false;
+        let rawTextContent = jsonScriptElement?.textContent || null; 
 
-    new Chart(ctxLinha, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Receita',
-            data: receitas,
-            borderColor: '#16a34a',
-            backgroundColor: 'rgba(22,163,74,0.12)',
-            tension: 0.25,
-            fill: true
-          },
-          {
-            label: 'Despesa',
-            data: despesas,
-            borderColor: '#dc2626',
-            backgroundColor: 'rgba(220,38,38,0.12)',
-            tension: 0.25,
-            fill: true
-          }
-        ]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        if (rawTextContent) {
+            try {
+                // Tenta remover espaços extras antes de parsear
+                parsedData = JSON.parse(rawTextContent.trim()); 
+                // Log para confirmar o tipo e valor após o parse
+                console.log(`[${canvasId}] DEBUG: Tentativa de Parse. Tipo Resultante: ${typeof parsedData}. Valor:`, parsedData); 
+            } catch (e) {
+                // Captura erros se o JSON estiver inválido
+                console.error(`[${canvasId}] Erro CRÍTICO ao parsear JSON:`, e, rawTextContent);
+                parseError = true;
+                parsedData = null; // Garante que é nulo em caso de erro
+            }
+        } else {
+            // Avisa se a tag <script json> não foi encontrada ou está vazia
+            console.warn(`[${canvasId}] Elemento json_script não encontrado ou vazio.`);
+            parseError = true; 
+        }
+        
+        // --- VERIFICAÇÃO 'hasData' REFEITA ---
+        let hasData = false;
+        if (!parseError && parsedData != null && (typeof parsedData === 'object' || Array.isArray(parsedData))) {
+             if (jsonDataId === 'fluxo-chart-data' && Array.isArray(parsedData)) { 
+                 hasData = parsedData.length > 0;
+             } else if (typeof parsedData === 'object' && !Array.isArray(parsedData) && parsedData.hasOwnProperty('data') && Array.isArray(parsedData.data)) {
+                 const numericData = parsedData.data.filter(item => typeof item === 'number');
+                 const sum = numericData.reduce((a, b) => a + b, 0);
+                 hasData = numericData.length > 0 && sum > 0;
+             }
+        } else { hasData = false; }
+        // --- FIM DA VERIFICAÇÃO ---
+
+        console.log(`[${canvasId}] FINAL CHECK -> ... Has Data: ${hasData}`);
+
+        if (ctx && hasData) {
+            try {
+                // === NOVO: Armazena a instância do gráfico ===
+                charts[canvasId] = new Chart(ctx, chartConfig(parsedData)); 
+                console.log(`[${canvasId}] Gráfico inicializado com sucesso.`);
+            } catch (e) { console.error(`[${canvasId}] Erro ao criar gráfico:`, e); }
+        } else if (ctx) {
+            console.log(`[${canvasId}] Não renderizando gráfico. Exibindo mensagem.`);
+            ctx.canvas.parentNode.innerHTML = `<p class="text-center text-muted mt-3">${noDataMessage}</p>`;
+        } else { console.warn(`[${canvasId}] Canvas não encontrado.`); }
+    }
+
+    // --- Chamadas para criar os gráficos (sem alterações) ---
+    createChart('fluxoCaixaChart', 'fluxo-chart-data', (data) => ({ type: 'line', data:{labels: data.map(p => p.label), datasets:[{label:'Receita (Paga)', data: data.map(p => p.receita), borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,0.1)', tension:0.1, fill:true},{label:'Despesa (Gasto)', data: data.map(p => p.despesa), borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,0.1)', tension:0.1, fill:true}]}, options:{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } }), 'Sem dados de fluxo de caixa para exibir.');
+    createChart('receitaOrigemChart', 'receita-origem-data', (data) => ({ type: 'doughnut', data:{labels: data.labels, datasets:[{data: data.data, backgroundColor:['rgba(0, 123, 255, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(108, 117, 125, 0.7)']}]}, options:{ responsive: true, maintainAspectRatio: false } }), 'Sem dados de receita por origem para exibir.');
+    createChart('despesaCategoriaChart', 'despesa-categoria-data', (data) => ({ type: 'pie', data:{labels: data.labels, datasets:[{data: data.data}]}, options:{ responsive: true, maintainAspectRatio: false } }), 'Sem dados de despesa por categoria para exibir.');
+    createChart('receitaFormaPagChart', 'receita-forma-pag-data', (data) => ({ type: 'bar', data:{labels: data.labels, datasets:[{label:'Valor Recebido (R$)', data: data.data, backgroundColor:'rgba(13, 110, 253, 0.7)'}]}, options:{ responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true } } } }), 'Sem dados de receita por forma de pagamento para exibir.');
+
+    // ==============================================================
+    // === NOVO: LÓGICA PARA REDIMENSIONAR GRÁFICOS NO COLAPSO/EXPANSÃO ===
+    // ==============================================================
+    const body = document.body;
+
+    // Função para redimensionar todos os gráficos existentes
+    function resizeCharts() {
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                console.log("🔄 Redimensionando gráficos...");
+                for (const chartId in charts) {
+                    if (charts[chartId] && typeof charts[chartId].resize === 'function') {
+                        charts[chartId].resize();
+                        console.log(`✅ Gráfico ${chartId} redimensionado.`);
+                    }
+                }
+            }, 150); // ligeiro delay, pode ajustar entre 100–300ms
+        });
+    }
+
+    // Cria um observador para monitorar mudanças na classe do body
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            // Verifica se o atributo 'class' foi modificado
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                 // Verifica se a classe 'sidebar-collapsed' foi adicionada ou removida
+                 const isCollapsedNow = body.classList.contains("sidebar-collapsed");
+                 const wasCollapsed = mutation.oldValue ? mutation.oldValue.includes("sidebar-collapsed") : false; // Verifica o valor antigo
+                 
+                 // Se o estado colapsado mudou, redimensiona os gráficos
+                 if (isCollapsedNow !== wasCollapsed) {
+                      console.log("Estado da sidebar mudou. Acionando redimensionamento.");
+                      resizeCharts();
+                 }
+            }
+        });
     });
-  }
 
-  // Gráfico de pizza: Receita por categoria
-  const ctxPizza = document.getElementById('pizzaCategoria')?.getContext('2d');
-  if (ctxPizza && categoriaData.length) {
-    new Chart(ctxPizza, {
-      type: 'doughnut',
-      data: {
-        labels: categoriaData.map(c => c.label),
-        datasets: [{
-          data: categoriaData.map(c => c.valor),
-          backgroundColor: ['#2563eb', '#22c55e', '#f59e0b'],
-        }]
-      }
+    // Configura o observador para observar o body e o atributo 'class'
+    observer.observe(body, {
+        attributes: true, 
+        attributeOldValue: true // Precisamos do valor antigo para comparar
     });
-  }
+    
+    // Também garante que redimensiona se a janela mudar de tamanho
+    window.addEventListener('resize', resizeCharts);
+});
 </script>
 {% endblock %}

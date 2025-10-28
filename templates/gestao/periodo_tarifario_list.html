@@ -1,0 +1,66 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/periodo_tarifario_list.html                      -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Tarifário Dinâmico{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Tarifário Dinâmico</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'periodo_tarifario_add' %}" class="btn btn-primary shadow-sm"> <i class="bi bi-plus-lg me-1"></i> Adicionar Novo Período
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome do Período</th>
+                            <th>Início</th>
+                            <th>Fim</th>
+                            <th>Ajuste (%)</th>
+                            <th>Status</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for periodo in periodos %}
+                        <tr class="{% cycle '' 'table-light' %}">
+                            <td class="fw-bold">{{ periodo.nome }}</td>
+                            <td>{{ periodo.data_inicio|date:"d/m/Y" }}</td>
+                            <td>{{ periodo.data_fim|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if periodo.percentual_ajuste > 0 %}
+                                    <span class="text-danger fw-bold">+{{ periodo.percentual_ajuste|floatformat:2 }}%</span>
+                                {% else %}
+                                    <span class="text-success fw-bold">{{ periodo.percentual_ajuste|floatformat:2 }}%</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if periodo.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'periodo_tarifario_edit' periodo.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'periodo_tarifario_delete' periodo.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4">Nenhum período tarifário cadastrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

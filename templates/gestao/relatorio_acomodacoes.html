@@ -1,5 +1,5 @@
 <!-- ========================================================================== -->
-<!-- ARQUIVO: templates/gestao/relatorio_acomodacoes.html (ATUALIZADO)          -->
+<!-- ARQUIVO: templates/gestao/relatorio_acomodacoes.html                       -->
 <!-- ========================================================================== -->
 {% extends 'base.html' %}
 {% block title %}Relatórios e Análises{% endblock %}
@@ -31,7 +31,7 @@
         <div class="col-lg-7 mb-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-light">
-                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-file-earmark-text-fill me-2"></i>Extrato de Pagamentos</h6>
+                    <h6 class="m-0 fw-bold"><i class="bi bi-file-earmark-text-fill me-2"></i>Extrato de Pagamentos</h6>
                 </div>
                 <div class="card-body">
                     <form method="get" action="{% url 'relatorio_acomodacoes' %}" class="row g-3 mb-4">
@@ -60,7 +60,8 @@
                                     <div class="w-100 d-flex justify-content-between pe-3">
                                         <span><i class="bi bi-person-fill me-2"></i><strong>{{ item.reserva.cliente.nome_completo }}</strong> 
                                             Quarto: <span class="fw-bold">{{ item.reserva.acomodacao.numero }}</span> 
-                                            Data:<strong>{{ item.reserva.data_checkin|date:"d/m"}} à {{ item.reserva.data_checkout|date:"d/m"}}</strong> </span>
+                                            Data: <strong>{{ item.reserva.data_checkin|date:"d/m"}} à {{ item.reserva.data_checkout|date:"d/m"}}</strong> 
+                                        </span>
                                         <span class="fw-bold text-success">Total Pago: R$ {{ item.total_pago|floatformat:2 }}</span>
                                     </div>
                                 </button>
@@ -69,9 +70,12 @@
                                 <div class="accordion-body">
                                     <p><strong>Acomodação:</strong> Quarto {{ item.reserva.acomodacao.numero }}</p>
                                     <p class="small text-muted"><strong>Período:</strong> {{ item.reserva.data_checkin|date:"d/m/Y" }} a {{ item.reserva.data_checkout|date:"d/m/Y" }}</p>
-                                    
+                                    <br>
                                     <h6><i class="bi bi-cash-stack me-1"></i>Pagamentos</h6>
-                                    <table class="table table-sm table-bordered">
+                                    <table class="table table-sm table-bordered table-striped">
+                                        <thead>
+                                            <tr><th>Data</th><th>Valor (R$)</th><th class="text-end">Forma</th></tr>
+                                        </thead>
                                         <tbody>
                                             {% for pagamento in item.pagamentos %}
                                             <tr>
@@ -84,7 +88,7 @@
                                     </table>
 
                                     <h6><i class="bi bi-people me-1"></i>Hóspedes</h6>
-                                    <table class="table table-sm table-bordered">
+                                    <table class="table table-sm table-bordered table-striped">
                                         <tbody>
                                             <tr>
                                                 <td>Adulto(s)</td>
@@ -106,30 +110,38 @@
                                             {% endif %}
                                         </tbody>
                                     </table>
-                                    
+
                                     <h6><i class="bi bi-car-front me-1"></i>Automóvel</h6>
-                                    <table class="table table-sm table-bordered">
+                                    <table class="table table-sm table-bordered table-striped">
                                         <tbody>
                                             {% if item.reserva.placa_automovel %}
-                                            <tr> 
-                                                <td>Placa</td></td> 
-                                                <td class="fw-bold"> {{ item.reserva.placa_automovel }} </td>
-                                            </tr>
-                                            {% else %}   
-                                            <tr><td colspan="2" class="text-center small">Nenhum automóvel</td></tr>
+                                                <tr>
+                                                    <td>Placa</td>
+                                                    <td class="fw-bold">{{ item.reserva.placa_automovel }}</td>
+                                                </tr>
+                                            {% else %}
+                                                <tr>
+                                                    <td colspan="2" class="text-center small text-muted">Nenhum automóvel registrado</td>
+                                                </tr>
                                             {% endif %}
                                         </tbody>
                                     </table>
 
                                     <h6><i class="bi bi-door-closed me-1"></i>Hospedagem</h6>
-                                    <table class="table table-sm table-bordered">
+                                    <table class="table table-sm table-bordered table-striped">
+                                        <thead>
+                                            <tr><th>Acomodação</th><th class="text-end">Valor</th></tr>
+                                        </thead>
                                         <tbody>
                                             <tr><td>{{ item.reserva.acomodacao.nome_display }} - {{ item.reserva.num_dias }} dia(s)</td><td>R$ {{ item.reserva.valor_total_diarias|floatformat:2 }}</td></tr>
                                         </tbody>
                                     </table>
 
                                     <h6><i class="bi bi-cup-straw me-1"></i>Consumos</h6>
-                                    <table class="table table-sm table-bordered">
+                                    <table class="table table-sm table-bordered table-striped">
+                                        <thead>
+                                            <tr><th>Produto</th><th class="text-end">Valor</th></tr>
+                                        </thead>
                                         <tbody>
                                             {% for consumo in item.consumos %}
                                             <tr><td>{{ consumo.item.nome }} ({{ consumo.quantidade }}x)</td><td>R$ {{ consumo.total|floatformat:2 }}</td></tr>

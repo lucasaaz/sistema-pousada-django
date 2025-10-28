@@ -1,0 +1,31 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/grupo_reserva_form.html                          -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}{% if object %}Editar Grupo de Reserva{% else %}Criar Grupo de Reserva{% endif %}{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">{% if object %}Editar Grupo de Reserva: {{ object.nome_grupo }}{% else %}Criar Novo Grupo de Reserva{% endif %}</h1>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <hr>
+                <div class="text-end">
+                    <a href="{% url 'grupo_reserva_list' %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+{{ form.media }}
+{% endblock %}

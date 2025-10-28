@@ -1,3 +1,6 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/gasto_confirm_delete.html                        -->
+<!-- ========================================================================== -->
 {% extends 'base.html' %}
 {% block title %}Confirmar Exclusão de Gasto{% endblock %}
 {% block content %}
@@ -8,7 +11,7 @@
             <p>Tem certeza que deseja excluir o gasto "<strong>{{ object.descricao }}</strong>" no valor de <strong>R$ {{ object.valor|floatformat:2 }}</strong>?</p>
             <form method="post">
                 {% csrf_token %}
-                <a href="{% url 'financeiro' %}" class="btn btn-secondary">Cancelar</a>
+                <a href="{% if object.evento %}{% url 'evento_detail' object.evento.pk %}{% else %}{% url 'financeiro' %}{% endif %}" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-danger">Sim, excluir</button>
             </form>
         </div>

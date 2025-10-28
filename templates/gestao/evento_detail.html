@@ -1,0 +1,234 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/espaco_detail.html                               -->
+<!-- ========================================================================== -->
+
+{% extends 'base.html' %}
+{% block title %}Detalhes do Evento{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div>
+        <h1 class="h2">Evento: {{ evento.nome_evento }}</h1>
+        <p class="text-muted">Cliente Responsável: {{ evento.cliente.nome_completo }}</p>
+    </div>
+    <div>
+        <a href="{% url 'eventos_dashboard' %}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="m-0 fw-bold">Informações Gerais</h6>
+            </div>
+            <div class="card-body">
+                <h6><strong>Espaços do Evento:</strong></h6>
+                <p>
+                    {% for espaco in evento.espacos.all %}
+
+                        {% cycle 'bg-success-soft' 'bg-primary-soft' 'bg-warning-soft' 'bg-info-soft' 'bg-danger-soft' as bg_class silent %}
+
+                        {% cycle 'text-success' 'text-primary' 'text-warning' 'text-info' 'text-danger' as text_class silent %}
+
+                        <span 
+                            class="badge {{ bg_class }} {{ text_class }}" 
+                            style="
+                                padding: 0.4em 0.8em;
+                                margin: 3px;
+                                font-size: 0.75em;
+                                font-weight: 500;
+                                border: 1px solid currentColor; 
+                            ">
+                            {{ espaco.nome }}
+                        </span>
+                    
+                    {% empty %}
+                        <span class="text-muted">Nenhum espaço selecionado.</span>
+                    {% endfor %}
+                </p>
+                <p><strong>Período:</strong> {{ evento.data_inicio|date:"d/m/Y H:i" }} a {{ evento.data_fim|date:"d/m/Y H:i" }}</p>
+                <p><strong>Convidados:</strong> {{ evento.numero_convidados }}</p>
+                <p><strong>Status:</strong> {{ evento.get_status_display }}</p>
+            </div>
+        </div>
+        <!-- Card de Adicionar Custo -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="m-0 fw-bold">Custos do Evento</h6>
+                <a href="{% url 'custo_evento_add' evento.pk %}" class="btn btn-sm btn-success">
+                    <i class="bi bi-plus-lg"></i> Adicionar Custo
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrição</th>
+                            <th>Valor (R$)</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for custo in custos_do_evento %}
+                        <tr>
+                            <td>{{ custo.data_custo|date:"d/m/y" }}</td>
+                            <td>{{ custo.descricao }}</td>
+                            <td>{{ custo.valor|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'custo_evento_edit' custo.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'custo_evento_delete' custo.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-3">Nenhum custo registrado para este evento.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Card de Adicionar Pagamento -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="m-0 fw-bold">Pagamentos</h6>
+                <a href="{% url 'pagamento_evento_add' evento.pk %}" class="btn btn-sm btn-success">
+                    <i class="bi bi-plus-lg"></i> Adicionar Pagamento
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Forma</th>
+                            <th>Valor (R$)</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pagamento in pagamentos_do_evento %}
+                        <tr>
+                            <td>{{ pagamento.data_pagamento|date:"d/m/y H:i" }}</td>
+                            <td>{{ pagamento.forma_pagamento.nome }}</td>
+                            <td>{{ pagamento.valor|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'pagamento_evento_edit' pagamento.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'pagamento_evento_delete' pagamento.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center">Nenhum pagamento registrado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Lógica de Ações corrigida e mais clara -->
+    <div class="col-lg-4">
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header fw-bold">
+                <i class="bi bi-toggles me-1"></i> Ações do Evento
+            </div>
+            <div class="card-body">
+            
+                <div class="mb-3 text-center">
+                    {% if evento.status == 'orcamento' %}
+                        <form action="{% url 'confirmar_evento_status' evento.pk %}" method="post" class="d-grid">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle-fill me-1"></i> Confirmar Evento
+                            </button>
+                            <small class="text-muted mt-1">Muda o status para 'Confirmado'.</small>
+                        </form>
+                    
+                    {% elif evento.status == 'confirmado' %}
+                        <form action="{% url 'realizar_evento_status' evento.pk %}" method="post" class="d-grid">
+                            {% csrf_token %}
+                            {# Desabilita o botão se houver saldo devedor #}
+                            <button type="submit" class="btn btn-success" {% if evento.saldo_devedor > 0 %}disabled{% endif %}>
+                                <i class="bi bi-flag-fill me-1"></i> Marcar como Realizado
+                            </button>
+                        </form>
+                        {# Mostra aviso se houver saldo devedor #}
+                        {% if evento.saldo_devedor > 0 %}
+                            <div class="alert alert-warning small p-2 mt-2 text-center" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                A conta precisa estar zerada, para marcar o evento como realizado.
+                                Saldo atual: <strong class="text-danger">R$ {{ evento.saldo_devedor|floatformat:2 }}</strong>
+                            </div>
+                        {% else %}
+                            <small class="text-muted mt-1 d-block">Muda o status para 'Realizado'.</small>
+                        {% endif %}
+
+                    {% elif evento.status == 'realizado' %}
+                        <p class="text-success"><i class="bi bi-check-all me-1"></i> Evento já realizado.</p>
+                    {% elif evento.status == 'cancelado' %}
+                        <p class="text-danger"><i class="bi bi-x-octagon-fill me-1"></i> Evento cancelado.</p>
+                    {% else %}
+                        <p class="text-muted">Nenhuma ação principal de status disponível.</p>
+                    {% endif %}
+                </div>
+            
+                <hr>
+
+                <div class="d-grid gap-2">
+
+                    {# Editar - Sempre disponível? (Pode restringir se quiser) #}
+                    <a href="{% url 'evento_edit' evento.pk %}" class="btn btn-outline-secondary btn-sm">
+                        Editar Detalhes do Evento
+                    </a>
+
+                    {# Cancelar - Só se Orçamento ou Confirmado #}
+                    {% if evento.status == 'orcamento' or evento.status == 'confirmado' %}
+                        <form action="{% url 'cancelar_evento_status' evento.pk %}" method="post" onsubmit="return confirm('Tem certeza que deseja cancelar este evento? Esta ação não pode ser desfeita.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                Cancelar Evento
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    {# Excluir - (Opcional) Poderia adicionar um botão aqui se necessário #}
+                    {# <a href="{% url 'evento_delete' evento.pk %}" class="btn btn-danger btn-sm">Excluir Evento</a> #}
+                </div>
+            </div>
+        </div>
+        <!-- Card de Resumo Financeiro -->
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="m-0 fw-bold">Resumo Financeiro do Evento</h6>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Valor Negociado:</span>
+                    <span>R$ {{ resumo_financeiro.valor_negociado|floatformat:2 }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>(+) Total de Custo:</span>
+                    <span>R$ {{ resumo_financeiro.total_custo|floatformat:2 }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between fw-bold">
+                    <span>Total a Pagar:</span> 
+                    <span>R$ {{ resumo_financeiro.total_a_pagar|floatformat:2 }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between text-success">
+                    <span>Total Pago:</span> 
+                    <span>R$ {{ resumo_financeiro.total_pago|floatformat:2 }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between fw-bold {% if resumo_financeiro.saldo_devedor > 0 %}bg-warning{% else %}bg-light{% endif %}">
+                    <span>Saldo Devedor:</span> 
+                    <span>R$ {{ resumo_financeiro.saldo_devedor|floatformat:2 }}</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

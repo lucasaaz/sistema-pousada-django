@@ -17,12 +17,14 @@ from django.db import transaction
 from datetime import datetime, timedelta, date
 from django.http import FileResponse
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
-from django.db.models import F, Count, Q, Sum, DecimalField, Value
+from django.views.decorators.http import require_POST
+from django.db.models import F, Count, Q, Sum, DecimalField, Value, Avg, Case, When
 from django.core.paginator import Paginator
-from django.db.models.functions import Coalesce, TruncMonth
+from django.db.models.functions import Coalesce, TruncMonth, Lower
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib import messages
+from decimal import Decimal
 from .utils import calcular_tarifa_completa
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -35,14 +37,13 @@ from django.http import HttpResponse
 import os
 import uuid
 from botocore.exceptions import ClientError
-
-
 # logger for this module
 logger = logging.getLogger(__name__)
-from .models import Reserva, Acomodacao, Cliente, TipoAcomodacao, ItemEstoque, Frigobar, ItemFrigobar, FormaPagamento, Consumo, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto
+from .models import Reserva, Acomodacao, Cliente, TipoAcomodacao, ItemEstoque, Frigobar, ItemFrigobar, FormaPagamento, Consumo, VagaEstacionamento, ConfiguracaoHotel, Gasto, CategoriaGasto, PeriodoTarifario, GrupoReserva, Espaco, Evento, CustoEvento, Pagamento
 from .forms import *
 from .utils import upload_file_to_s3
 import json
+import logging
 
 # ==============================================================================
 # === VIEW DO DASHBOARD                                                      ===
@@ -301,37 +302,72 @@ def gerar_url_upload_view(request):
 @login_required
 def calcular_tarifa_view(request):
     try:
-        # 1. Coleta os dados (continua igual)
+        # 1. Coleta e valida os dados da request
         acomodacao_id = request.GET.get('acomodacao_id')
+        cliente_id = request.GET.get('cliente_id')
         checkin_str = request.GET.get('checkin')
         checkout_str = request.GET.get('checkout')
+        
+        if not all([acomodacao_id, cliente_id, checkin_str, checkout_str]):
+            return JsonResponse({'error': 'Parâmetros faltando'}, status=400)
+
         num_adultos = int(request.GET.get('num_adultos', 0))
         num_criancas_12 = int(request.GET.get('num_criancas_12', 0))
         num_pessoas = num_adultos + num_criancas_12
         
-        # 2. Converte e calcula (continua igual)
+        # 2. Converte e busca objetos no banco
         acomodacao = Acomodacao.objects.select_related('tipo').get(pk=acomodacao_id)
+        cliente = Cliente.objects.get(pk=cliente_id)
         checkin_date = datetime.fromisoformat(checkin_str.replace('T', ' '))
         checkout_date = datetime.fromisoformat(checkout_str.replace('T', ' '))
 
-        # --- Validação de Capacidade ---
+        # 3. Validação de Capacidade
         if num_pessoas > acomodacao.capacidade:
-            return JsonResponse({
-                'error': f'Capacidade excedida. Acomodação suporta no máximo {acomodacao.capacidade} pessoas.'
-            }, status=400)
+            return JsonResponse({'error': f'Capacidade excedida ({acomodacao.capacidade} pessoas).'}, status=400)
 
-        # --- Lógica de "TRADUÇÃO" ---
-        # Obtém o slug do tipo de acomodação
+        # 4. Cálculo da Tarifa Base
         chave_preco = acomodacao.tipo.chave_de_preco
-
-        # Chama a função de cálculo com o tipo correto
-        valor_total, detalhamento = calcular_tarifa_completa(
-            chave_de_preco=chave_preco, # Passa a chave para a função
+        valor_total, detalhamento_base = calcular_tarifa_completa(
+            chave_de_preco=chave_preco,
             checkin_date=checkin_date,
             checkout_date=checkout_date,
             num_adultos=num_adultos,
             num_criancas_12=num_criancas_12
         )
+        detalhamento = detalhamento_base or []
+
+        # --- LÓGICA DE PRIORIDADE CORRIGIDA ---
+        # 5. Busca por Períodos Tarifários aplicáveis
+        periodos_aplicaveis = PeriodoTarifario.objects.filter(
+            ativo=True,
+            data_inicio__lte=checkout_date.date(),
+            data_fim__gte=checkin_date.date()
+        )
+
+        # 6. Aplica a regra com a maior prioridade
+        periodo_final = None
+        # Prioridade 1: Regra específica para o Cliente
+        regra_cliente = periodos_aplicaveis.filter(clientes=cliente).order_by('-percentual_ajuste').first()
+        if regra_cliente:
+            periodo_final = regra_cliente
+        else:
+            # Prioridade 2: Regra específica para a Acomodação
+            regra_acomodacao = periodos_aplicaveis.filter(acomodacoes=acomodacao).order_by('-percentual_ajuste').first()
+            if regra_acomodacao:
+                periodo_final = regra_acomodacao
+            else:
+                # Prioridade 3: Regra Geral
+                regra_geral = periodos_aplicaveis.filter(clientes__isnull=True, acomodacoes__isnull=True).order_by('-percentual_ajuste').first()
+                if regra_geral:
+                    periodo_final = regra_geral
+
+        # 7. Se uma regra foi encontrada, aplica o ajuste
+        if periodo_final:
+            ajuste = periodo_final.percentual_ajuste
+            valor_total = valor_total * (1 + (ajuste / Decimal('100.0')))
+            
+            sinal = "+" if ajuste > 0 else ""
+            detalhamento.append(f"Ajuste de {sinal}{ajuste}% ({periodo_final.nome})")
 
         return JsonResponse({
             'valor_total': f'{valor_total:.2f}',
@@ -349,7 +385,7 @@ def calcular_tarifa_view(request):
 # CRUD para Tipos de Acomodação
 class TipoAcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_tipoacomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = TipoAcomodacao
     template_name = 'gestao/tipo_acomodacao_list.html'
@@ -372,7 +408,7 @@ class TipoAcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
 # ... (Create, Update, Delete para TipoAcomodacao continuam iguais)
 class TipoAcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_tipoacomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = TipoAcomodacao
     form_class = TipoAcomodacaoForm
@@ -382,7 +418,7 @@ class TipoAcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, Succ
 
 class TipoAcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_tipoacomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = TipoAcomodacao
     form_class = TipoAcomodacaoForm
@@ -392,7 +428,7 @@ class TipoAcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Succ
 
 class TipoAcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_tipoacomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = TipoAcomodacao
     template_name = 'gestao/tipo_acomodacao_confirm_delete.html'
@@ -409,7 +445,7 @@ class TipoAcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
 # ==============================================================================
 class AcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_acomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = Acomodacao
     template_name = 'gestao/acomodacao_list.html'
@@ -446,7 +482,7 @@ class AcomodacaoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 # ... (Create, Update, Delete para Acomodacao continuam iguais)
 class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_acomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = Acomodacao
     form_class = AcomodacaoForm
@@ -456,7 +492,7 @@ class AcomodacaoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessM
 
 class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_acomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = Acomodacao
     form_class = AcomodacaoForm
@@ -466,7 +502,7 @@ class AcomodacaoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessM
 
 class AcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_acomodacao'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = Acomodacao
     template_name = 'gestao/acomodacao_confirm_delete.html'
@@ -484,7 +520,7 @@ class AcomodacaoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
 
 class ReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_reserva'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = Reserva
     template_name = 'gestao/reserva_list.html'
@@ -573,39 +609,70 @@ class ReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     success_message = "Reserva para o cliente '%(cliente)s' criada com sucesso!"
 
     def dispatch(self, request, *args, **kwargs):
-        """
-        O dispatch é executado antes do GET ou do POST.
-        É o lugar perfeito para preparar dados que ambos os métodos precisam.
-        """
         cliente_id = request.GET.get('cliente_id')
+        grupo_id = request.GET.get('grupo_id')
+
         self.cliente_pre_selecionado = None
+        self.grupo_pre_selecionado = None
+
+        # Se vier um grupo_id, pré-seleciona o cliente responsável do grupo
+        if grupo_id:
+            try:
+                self.grupo_pre_selecionado = GrupoReserva.objects.get(pk=grupo_id)
+                # 👇 IMPORTANTE: Pré-seleciona o cliente responsável do grupo
+                self.cliente_pre_selecionado = self.grupo_pre_selecionado.cliente_responsavel
+            except GrupoReserva.DoesNotExist:
+                pass
+
+        # Se vier um cliente_id específico, sobrescreve
         if cliente_id:
             try:
                 self.cliente_pre_selecionado = Cliente.objects.get(pk=cliente_id)
             except Cliente.DoesNotExist:
                 pass
+
         return super().dispatch(request, *args, **kwargs)
 
     def get_initial(self):
-        """
-        Este método continua igual, usando o cliente que o dispatch buscou.
-        """
         initial = super().get_initial()
+
+        # Pré-preenche o cliente
         if self.cliente_pre_selecionado:
             cliente = self.cliente_pre_selecionado
             initial['cliente'] = cliente.pk
             initial['cliente_busca'] = cliente.nome_completo
+
+        # 👇 CRÍTICO: Pré-preenche o grupo no campo hidden
+        if self.grupo_pre_selecionado:
+            initial['grupo'] = self.grupo_pre_selecionado.pk
+
         return initial
 
     def get_context_data(self, **kwargs):
-        """
-        Este método também continua igual, usando o cliente do dispatch.
-        """
         context = super().get_context_data(**kwargs)
+
+        # Adiciona a foto do cliente ao contexto
         if self.cliente_pre_selecionado and self.cliente_pre_selecionado.foto:
-            # cliente.foto é um URLField (string) - não usar .url
-            context['cliente_foto_url'] = self.cliente_pre_selecionado.foto
+            context['cliente_foto_url'] = self.cliente_pre_selecionado.foto.url
+
+        # Adiciona o grupo ao contexto para exibir no template
+        if self.grupo_pre_selecionado:
+            context['grupo_reserva'] = self.grupo_pre_selecionado
+
         return context
+    
+    def form_valid(self, form):
+        # Salva a reserva
+        response = super().form_valid(form)
+        reserva = self.object # O objeto recém-criado
+
+        # Verifica se a reserva pertence a um grupo
+        if reserva.grupo:
+            messages.success(self.request, f"Acomodação '{reserva.acomodacao.nome_display}' adicionada ao grupo com sucesso!")
+            return redirect('grupo_reserva_detail', pk=reserva.grupo.pk)
+        
+        # Se não, continua com o comportamento padrão (usa o success_url e success_message da classe)
+        return response
 
 class ReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_reserva'
@@ -882,6 +949,88 @@ def abrir_arquivo(request, arquivo_id):
     return FileResponse(arquivo.arquivo.open("rb"), as_attachment=False)
 
 # ==============================================================================
+# === View para Reserva em Grupos                                            ===
+# ==============================================================================
+class GrupoReservaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = 'gestao.view_gruporeserva'
+    raise_exception = True 
+
+    model = GrupoReserva
+    template_name = 'gestao/grupo_reserva_detail.html'
+    context_object_name = 'grupo'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        grupo = self.get_object()
+        
+        # Busca todas as reservas associadas a este grupo
+        reservas_do_grupo = grupo.reservas.all().select_related('cliente', 'acomodacao')
+        context['reservas_do_grupo'] = reservas_do_grupo
+        
+        # --- CÁLCULO DO RESUMO FINANCEIRO CONSOLIDADO ---
+        total_diarias = sum(reserva.valor_total_diarias for reserva in reservas_do_grupo)
+        total_consumo = sum(reserva.valor_consumo for reserva in reservas_do_grupo)
+        
+        # Busca o total de pagamentos de todas as reservas do grupo
+        total_pago = Pagamento.objects.filter(reserva__in=reservas_do_grupo).aggregate(Sum('valor'))['valor__sum'] or 0
+        
+        total_a_pagar = total_diarias + total_consumo
+        saldo_devedor = total_a_pagar - total_pago
+
+        context['resumo_financeiro'] = {
+            'total_diarias': total_diarias,
+            'total_consumo': total_consumo,
+            'total_a_pagar': total_a_pagar,
+            'total_pago': total_pago,
+            'saldo_devedor': saldo_devedor,
+        }
+        
+        return context
+    
+class GrupoReservaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_gruporeserva'
+    raise_exception = True 
+
+    model = GrupoReserva
+    template_name = 'gestao/grupo_reserva_list.html'
+    context_object_name = 'grupos'
+    paginate_by = 15
+
+class GrupoReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    permission_required = 'gestao.add_gruporeserva'
+    raise_exception = True 
+
+    model = GrupoReserva
+    form_class = GrupoReservaForm
+    template_name = 'gestao/grupo_reserva_form.html'
+    success_url = reverse_lazy('grupo_reserva_list')
+    success_message = "Grupo de Reserva '%(nome_grupo)s' criado com sucesso!"
+
+class GrupoReservaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_gruporeserva'
+    raise_exception = True 
+
+    model = GrupoReserva
+    form_class = GrupoReservaForm
+    template_name = 'gestao/grupo_reserva_form.html' # Reutiliza o mesmo template do 'adicionar'
+    success_url = reverse_lazy('grupo_reserva_list')
+    success_message = "Grupo '%(nome_grupo)s' atualizado com sucesso!"
+
+class GrupoReservaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_gruporeserva'
+    raise_exception = True 
+
+    model = GrupoReserva
+    template_name = 'gestao/grupo_reserva_confirm_delete.html'
+    success_url = reverse_lazy('grupo_reserva_list')
+    success_message = "Grupo de Reserva '%(nome_grupo)s' foi excluído com sucesso."
+
+    def form_valid(self, form):
+        # Adiciona a mensagem de sucesso antes de o objeto ser deletado
+        messages.success(self.request, f"Grupo de Reserva '{self.object}' foi excluído com sucesso.")
+        return super().form_valid(form)
+
+# ==============================================================================
 # === View para o calendário de reservas                                     ===
 # ==============================================================================
 
@@ -907,33 +1056,92 @@ class CalendarioReservasView(LoginRequiredMixin, TemplateView):
     
 @login_required
 def reservas_calendario_api(request):
-    # Otimiza a consulta para já buscar os dados do cliente
-    reservas = Reserva.objects.filter(
-        status__in=['pre_reserva', 'confirmada', 'checkin', 'checkout']
-    ).select_related('cliente', 'acomodacao')
     
-    eventos = []
+    # --- 1. CORES PARA EVENTOS ---
+    EVENTO_STATUS_COLORS = {
+        'orcamento': '#ffc107',  # Amarelo (Warning)
+        'confirmado': '#198754', # Verde (Success)
+        'realizado': '#6c757d',   # Cinza (Secondary)
+        'cancelado': "#e00e0e",
+    }
+    DEFAULT_EVENTO_COLOR = '#ffc107' 
+
+    # --- 2. LISTA DE EVENTOS DO CALENDÁRIO (Reservas + Eventos) ---
+    eventos_api_list = []
+
+    # Busca Reservas
+    reservas = Reserva.objects.all().select_related('cliente', 'acomodacao')
+    
     for reserva in reservas:
-        eventos.append({
-            # --- ADICIONE A LINHA 'resourceId' AQUI ---
-            'resourceId': reserva.acomodacao.pk,
-            
-            'title': f"Res. #{reserva.pk} - {reserva.cliente.nome_completo}",
+        eventos_api_list.append({
+            'id': f"reserva_{reserva.pk}",
+            'resourceId': f"acomodacao_{reserva.acomodacao.pk}", # Liga à linha da Acomodação
+            'title': f"Res. {reserva.pk} - {reserva.cliente.nome_completo}",
             'start': reserva.data_checkin.isoformat(),
             'end': reserva.data_checkout.isoformat(),
             'color': reserva.status_color,
-            'url': reverse('reserva_detail', args=[reserva.pk])
+            'url': reverse('reserva_detail', args=[reserva.pk]),
+            'extendedProps': {
+                'tipo': 'reserva',
+                'reserva_pk': reserva.pk,
+                'status_display': reserva.get_status_display(),
+                'checkin_fmt': reserva.data_checkin.strftime('%d/%m %H:%M'),
+                'checkout_fmt': reserva.data_checkout.strftime('%d/%m %H:%M'),
+                'hospedes_txt': f"{reserva.num_adultos} Adulto(s), {reserva.num_criancas_12} Criança(s)"
+            }
         })
 
-    # O resto da sua view (a busca de recursos) continua perfeito.
-    recursos = []
-    for acomodacao in Acomodacao.objects.all().order_by('numero'):
-        recursos.append({
-            'id': acomodacao.pk,
-            'title': acomodacao.nome_display
-        })
+    # Busca Eventos 
+    eventos_db = Evento.objects.all().select_related('cliente').prefetch_related('espacos')
+
+    for evento in eventos_db:
         
-    return JsonResponse({'eventos': eventos, 'recursos': recursos})
+        # << SUA IDEIA SENDO APLICADA >>
+        # 1. Junta os nomes de todos os espaços em uma string
+        espacos_nomes = list(evento.espacos.all().values_list('nome', flat=True))
+        espacos_str = ", ".join(espacos_nomes) if espacos_nomes else "Nenhum espaço definido"
+
+        eventos_api_list.append({
+            'id': f"evento_{evento.pk}",
+            'resourceId': 'EVENTOS_ROW', # << ID ESTÁTICO! Todos os eventos vão para esta linha
+            'title': evento.nome_evento, # << TÍTULO SIMPLES (Nome do Evento)
+            'start': evento.data_inicio.isoformat(),
+            'end': evento.data_fim.isoformat(),
+            'color': EVENTO_STATUS_COLORS.get(evento.status, DEFAULT_EVENTO_COLOR),
+            'url': reverse('evento_detail', args=[evento.pk]),
+            'extendedProps': {
+                'tipo': 'evento',
+                'evento_pk': evento.pk,
+                'cliente_nome': evento.cliente.nome_completo,
+                'espacos_str': espacos_str, # << NOVO: Passa a string de espaços
+                'status_display': evento.get_status_display(),
+                'checkin_fmt': evento.data_inicio.strftime('%d/%m %H:%M'),
+                'checkout_fmt': evento.data_fim.strftime('%d/%m %H:%M'),
+                'convidados_txt': f"{evento.numero_convidados} Convidado(s)"
+            }
+        })
+
+    # --- 3. LISTA DE RECURSOS (Acomodações + 1 Linha de Evento) ---
+    recursos = []
+    
+    # Adiciona Acomodações (igual a antes)
+    acomodacoes = Acomodacao.objects.all().order_by(Lower('tipo__nome'), 'numero')
+    for acomodacao in acomodacoes:
+        recursos.append({
+            'id': f"acomodacao_{acomodacao.pk}",
+            'title': acomodacao.nome_display,
+            'grouping': 'Acomodações' # Agrupa
+        })
+
+    # << SUA IDEIA SENDO APLICADA >>
+    # Adiciona UMA ÚNICA LINHA ESTÁTICA para todos os eventos
+    recursos.append({
+        'id': 'EVENTOS_ROW',
+        'title': 'Eventos',
+        'grouping': 'Espaços de Evento' # Agrupa
+    })
+        
+    return JsonResponse({'eventos': eventos_api_list, 'recursos': recursos})
 
 # ==============================================================================
 # === VIEWS PARA A GESTÃO DE ESTOQUE                                         ===
@@ -941,7 +1149,7 @@ def reservas_calendario_api(request):
 
 class ItemEstoqueListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_itemestoque'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = ItemEstoque
     template_name = 'gestao/item_estoque_list.html'
@@ -957,7 +1165,7 @@ class ItemEstoqueListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 
 class ItemEstoqueCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_itemestoque'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     model = ItemEstoque
     form_class = ItemEstoqueForm
     template_name = 'gestao/item_estoque_form.html'
@@ -966,7 +1174,7 @@ class ItemEstoqueCreateView(LoginRequiredMixin, PermissionRequiredMixin, Success
 
 class ItemEstoqueUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_itemestoque'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = ItemEstoque
     form_class = ItemEstoqueForm
@@ -976,7 +1184,7 @@ class ItemEstoqueUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Success
 
 class ItemEstoqueDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_itemestoque'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = ItemEstoque
     template_name = 'gestao/item_estoque_confirm_delete.html'
@@ -1052,10 +1260,12 @@ def frigobar_detail_view(request, acomodacao_pk):
     return render(request, 'gestao/frigobar_detail.html', context)
 
 class ItemFrigobarUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_itemfrigobar'
+    raise_exception = True
+
     model = ItemFrigobar
     form_class = ItemFrigobarUpdateForm
     template_name = 'gestao/item_frigobar_form.html' # Criaremos este template a seguir
-    permission_required = 'gestao.change_itemfrigobar'
     success_message = "Quantidade do item atualizada com sucesso!"
 
     def get_context_data(self, **kwargs):
@@ -1167,11 +1377,13 @@ def consumo_create_view(request, reserva_pk):
     return render(request, 'gestao/consumo_form.html', context)
 
 class ConsumoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_consumo'
+    raise_exception = True
+
     model = Consumo
     form_class = ConsumoUpdateForm
     template_name = 'gestao/consumo_form.html' # Reutilizaremos o form, mas com contexto diferente
     context_object_name = 'consumo'
-    permission_required = 'gestao.change_consumo'
     success_message = "Consumo atualizado com sucesso!"
 
     def get_context_data(self, **kwargs):
@@ -1221,10 +1433,12 @@ class ConsumoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
             return super().form_valid(form)
 
 class ConsumoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_consumo'
+    raise_exception = True
+
     model = Consumo
     template_name = 'gestao/consumo_confirm_delete.html'
     context_object_name = 'consumo'
-    permission_required = 'gestao.delete_consumo'
     raise_exception = True
 
     def get_success_url(self):
@@ -1258,7 +1472,7 @@ class ConsumoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
 # ==============================================================================
 class FormaPagamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_formapagamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = FormaPagamento
     template_name = 'gestao/forma_pagamento_list.html'
@@ -1268,7 +1482,7 @@ class FormaPagamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
 
 class FormaPagamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_formapagamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = FormaPagamento
     form_class = FormaPagamentoForm
@@ -1278,7 +1492,7 @@ class FormaPagamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, Succ
 
 class FormaPagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_formapagamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = FormaPagamento
     form_class = FormaPagamentoForm
@@ -1288,7 +1502,7 @@ class FormaPagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Succ
 
 class FormaPagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_formapagamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = FormaPagamento
     template_name = 'gestao/forma_pagamento_confirm_delete.html'
@@ -1303,38 +1517,55 @@ class FormaPagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
 # ==============================================================================
 # === VIEWS PARA PAGAMENTOS                                                  ===
 # ==============================================================================
-@login_required
-@permission_required('gestao.add_pagamento', raise_exception=True)
-def pagamento_create_view(request, reserva_pk):
-    """Regista um novo pagamento para uma reserva."""
-    reserva = get_object_or_404(Reserva, pk=reserva_pk)
-    
-    if request.method == 'POST':
-        form = PagamentoForm(request.POST)
-        if form.is_valid():
-            pagamento = form.save(commit=False)
-            pagamento.reserva = reserva
-            pagamento.save()
-            messages.success(request, f"Pagamento de R$ {pagamento.valor} registado com sucesso!")
-            
-            # Se a reserva estava como pré-reserva, muda para confirmada
-            if reserva.status == 'pre_reserva':
-                reserva.status = 'confirmada'
-                reserva._change_reason = 'Status alterado para Confirmada devido ao registro de novo pagamento.'
-                reserva.save()
-                # Avisa o usuário que o status mudou
-                messages.info(request, "O status da reserva foi atualizado para 'Confirmada'.")
-            
-            return redirect('reserva_detail', pk=reserva.pk)
-    else:
-        # Sugere o valor do saldo devedor como valor inicial do pagamento
-        form = PagamentoForm(initial={'valor': reserva.saldo_devedor()})
 
-    context = {
-        'form': form,
-        'reserva': reserva,
-    }
-    return render(request, 'gestao/pagamento_form.html', context)
+class PagamentoReservaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'gestao.add_pagamento'
+    raise_exception = True
+
+    model = Pagamento
+    form_class = PagamentoForm
+    template_name = 'gestao/pagamento_form.html'
+
+    def get_initial(self):
+        """ Pega a lógica do 'initial' da sua função original """
+        reserva = get_object_or_404(Reserva, pk=self.kwargs['reserva_pk'])
+        initial = super().get_initial()
+        
+        # Tenta sugerir o saldo devedor
+        if hasattr(reserva, 'saldo_devedor'):
+            initial['valor'] = reserva.saldo_devedor()
+            
+        return initial
+
+    def get_context_data(self, **kwargs):
+        """ Envia a 'reserva' para o template (para o botão "Cancelar") """
+        context = super().get_context_data(**kwargs)
+        context['reserva'] = get_object_or_404(Reserva, pk=self.kwargs['reserva_pk'])
+        return context
+
+    def form_valid(self, form):
+        """ Pega a lógica de salvar e atualizar status da sua função original """
+        reserva = get_object_or_404(Reserva, pk=self.kwargs['reserva_pk'])
+        
+        # Associa o pagamento à reserva ANTES de salvar
+        form.instance.reserva = reserva
+        
+        # Adiciona a mensagem de sucesso
+        messages.success(self.request, f"Pagamento de R$ {form.instance.valor} registado com sucesso!")
+
+        # Lógica de atualização do status da reserva
+        if reserva.status == 'pre_reserva':
+            reserva.status = 'confirmada'
+            reserva._change_reason = 'Status alterado para Confirmada devido ao registro de novo pagamento.'
+            reserva.save()
+            messages.info(self.request, "O status da reserva foi atualizado para 'Confirmada'.")
+            
+        # O super().form_valid() salva o 'form.instance' e redireciona
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        """ Redireciona de volta para a reserva_detail """
+        return reverse_lazy('reserva_detail', kwargs={'pk': self.kwargs['reserva_pk']})
 
 class PagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_pagamento'
@@ -1343,12 +1574,31 @@ class PagamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMe
     model = Pagamento
     form_class = PagamentoForm
     template_name = 'gestao/pagamento_form.html'
-
     success_message = "Pagamento no valor de R$ %(valor)s atualizado com sucesso!"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pagamento = self.get_object()
+        
+        if pagamento.reserva:
+            # Envia a reserva para o template poder usar no link "Cancelar"
+            context['reserva'] = pagamento.reserva
+        elif pagamento.evento:
+            # Envia o evento para o template poder usar no link "Cancelar"
+            context['evento'] = pagamento.evento
+        
+        return context
+
     def get_success_url(self):
-        # Volta para a página de detalhes da reserva após editar
-        return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+        pagamento = self.object 
+
+        if pagamento.reserva:
+            return reverse_lazy('reserva_detail', kwargs={'pk': pagamento.reserva.pk})
+        elif pagamento.evento:
+            return reverse_lazy('evento_detail', kwargs={'pk': pagamento.evento.pk})
+        else:
+            messages.warning(self.request, "Pagamento sem reserva ou evento associado.")
+            return reverse_lazy('dashboard')
 
 class PagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_pagamento'
@@ -1356,10 +1606,26 @@ class PagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
 
     model = Pagamento
     template_name = 'gestao/pagamento_confirm_delete.html'
-
+    
     def get_success_url(self):
-        # Volta para a página de detalhes da reserva após excluir
-        return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+        """
+        Verifica qual é o "pai" do pagamento (Reserva ou Evento)
+        e redireciona para a página de detalhes correta.
+        """
+        pagamento = self.object # O pagamento que está sendo (ou foi) deletado
+
+        if pagamento.reserva:
+            # 1. Se tem uma reserva, volte para a reserva
+            return reverse_lazy('reserva_detail', kwargs={'pk': pagamento.reserva.pk})
+        
+        elif pagamento.evento:
+            # 2. Se tem um evento, volte para o evento
+            return reverse_lazy('evento_detail', kwargs={'pk': pagamento.evento.pk})
+        
+        else:
+            # 3. Se não tem nenhum (é órfão), volte para um local seguro
+            messages.warning(self.request, "Pagamento sem reserva ou evento associado.")
+            return reverse_lazy('dashboard')
     
     def form_valid(self, form):
         # Adiciona a mensagem de sucesso antes de o objeto ser deletado
@@ -1369,9 +1635,10 @@ class PagamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
 # ==============================================================================
 # === VIEWS PARA ESTACIONAMENTO                                              ===
 # ==============================================================================
+
 class VagaEstacionamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_vagaestacionamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
 
     model = VagaEstacionamento
     template_name = 'gestao/vaga_estacionamento_list.html'
@@ -1401,7 +1668,7 @@ class VagaEstacionamentoListView(LoginRequiredMixin, PermissionRequiredMixin, Li
 
 class VagaEstacionamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_vagaestacionamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = VagaEstacionamento
     form_class = VagaEstacionamentoForm
@@ -1411,7 +1678,7 @@ class VagaEstacionamentoCreateView(LoginRequiredMixin, PermissionRequiredMixin, 
 
 class VagaEstacionamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_vagaestacionamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = VagaEstacionamento
     form_class = VagaEstacionamentoForm
@@ -1421,7 +1688,7 @@ class VagaEstacionamentoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, 
 
 class VagaEstacionamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_vagaestacionamento'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = VagaEstacionamento
     template_name = 'gestao/vaga_estacionamento_confirm_delete.html'
@@ -1438,7 +1705,7 @@ class VagaEstacionamentoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, 
 # ==============================================================================
 class FuncionarioListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_funcionario'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = User
     template_name = 'gestao/funcionario_list.html'
@@ -1447,7 +1714,7 @@ class FuncionarioListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 
 class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_funcionario'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = User
     form_class = FuncionarioCreationForm
@@ -1457,7 +1724,7 @@ class FuncionarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, Success
 
 class FuncionarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_funcionario'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = User
     form_class = FuncionarioUpdateForm
@@ -1584,184 +1851,201 @@ def relatorio_acomodacoes_view(request):
 # ==========================================================
 # === VIEWS PARA O GESTÃO FINANCEIRA                     ===
 # ==========================================================
+
 @login_required
 def financeiro_dashboard_view(request):
-    # --- Form de gasto (POST) ---
+    
+    # --- Form de gasto (POST) --- 
+    # (Sem alterações)
     if request.method == 'POST':
         gasto_form = GastoForm(request.POST)
         if gasto_form.is_valid():
             gasto_form.save()
             messages.success(request, 'Gasto adicionado com sucesso!')
-            return redirect('financeiro')
+            return redirect('financeiro') # Redireciona para a própria página (GET)
     else:
+        # Garante que o form sempre tenha categorias (ou estará vazio se não houver)
         gasto_form = GastoForm()
 
-    # --- Período (GET) ---
-    # Default: mês atual
+    # --- 1. FILTRO DE PERÍODO (Simplificado) ---
     today = timezone.localdate()
-    month_start = today.replace(day=1)
-    default_start = request.GET.get('start', month_start.strftime('%Y-%m-%d'))
-    default_end = request.GET.get('end', today.strftime('%Y-%m-%d'))
+    # Pega datas da URL ou usa o mês atual como padrão
+    start_date_str = request.GET.get('start', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date_str = request.GET.get('end', today.strftime('%Y-%m-%d'))
+    
+    # Converte datas, usando padrão em caso de erro
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        start_date = today.replace(day=1)
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        
+    try:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        end_date = today
+        end_date_str = end_date.strftime('%Y-%m-%d')
 
-    def parse_date(d):
-        try:
-            return datetime.strptime(d, '%Y-%m-%d').date()
-        except Exception:
-            return None
+    # --- 2. QUERIES BASE FILTRADAS PELO PERÍODO ---
+    
+    # Pagamentos (RECEITA) - Usando data_pagamento
+    pagamentos_qs = Pagamento.objects.filter(
+        data_pagamento__date__gte=start_date,
+        data_pagamento__date__lte=end_date
+    ).select_related('reserva', 'evento', 'forma_pagamento') # Inclui forma_pagamento
 
-    start_date = parse_date(default_start) or month_start
-    end_date = parse_date(default_end) or today
-    end_date_plus1 = end_date + timedelta(days=1)  # para filtro __lt em DateTime/Date
+    # Gastos (DESPESA) - Usando data_gasto
+    gastos_qs = Gasto.objects.filter(
+        data_gasto__gte=start_date,
+        data_gasto__lte=end_date
+    ).select_related('categoria') # Inclui categoria
 
-    # --- QuerySets base ---
-    pagamentos_qs = Pagamento.objects.all()
-    gastos_qs = Gasto.objects.all()
-    reservas_qs = Reserva.objects.filter(status__in=['checkin', 'checkout'])
+    # --- 3. CÁLCULO DOS KPIs (Request #2 - CORRIGIDO) ---
+    
+    total_recebido = pagamentos_qs.aggregate(
+        total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField()))
+    )['total']
+    
+    total_despesas = gastos_qs.aggregate(
+        total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField()))
+    )['total']
+    
+    lucro_liquido = total_recebido - total_despesas
+    
+    num_pagamentos = pagamentos_qs.count()
+    ticket_medio = total_recebido / num_pagamentos if num_pagamentos > 0 else 0
 
-    # Filtros por período
-    # Pagamentos: data_pagamento (ajuste se for DateTimeField/DateField)
-    pagamentos_qs = pagamentos_qs.filter(data_pagamento__gte=start_date, data_pagamento__lt=end_date_plus1)
+    # Contas a Receber (Opcional - Mantendo comentado por enquanto)
+    # reservas_devendo = Reserva.objects.filter(status__in=['confirmada', 'checkin']).annotate(...) # lógica complexa
+    # eventos_devendo = Evento.objects.filter(status='confirmado').annotate(...) # lógica complexa
+    # contas_a_receber = ...
 
-    # Gastos: data_gasto
-    gastos_qs = gastos_qs.filter(data_gasto__gte=start_date, data_gasto__lt=end_date_plus1)
+    # --- 4. DADOS PARA GRÁFICOS ---
 
-    # Reservas: ajuste para o campo adequado (ex.: data_checkout, data_saida, data_fechamento).
-    # >>> TROQUE 'data_checkout' para o seu campo de referência de competência <<<
-    # Se você não tiver esse campo, comente o filtro por data e mantenha só o status.
-    if hasattr(Reserva, 'data_checkout'):
-        reservas_qs = reservas_qs.filter(data_checkout__gte=start_date, data_checkout__lt=end_date_plus1)
-    # else: mantenha apenas o filtro por status
-
-    # --- KPIs de Caixa (Entrou/ Saiu) e Competência ---
-    total_entradas_caixa = pagamentos_qs.aggregate(
-        total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)))
-    )['total'] or 0
-
-    despesas_total_periodo = gastos_qs.aggregate(
-        total=Coalesce(
-            Sum('valor'),
-            Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
-        )
-    )['total'] or 0
-
-    lucro_caixa_periodo = total_entradas_caixa - despesas_total_periodo
-
-    # Receita por categoria (competência, a partir das reservas)
-    receita_quartos = reservas_qs.aggregate(
-        total=Coalesce(
-            Sum('valor_total_diarias'),
-            Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
-        )
-    )['total'] or 0
-
-    receita_consumo = reservas_qs.aggregate(
-        total=Coalesce(
-            Sum('valor_consumo'),
-            Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
-        )
-    )['total'] or 0
-
-    receita_outros = reservas_qs.aggregate(
-        total=Coalesce(
-            Sum('valor_extra'),
-            Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
-        )
-    )['total'] or 0
-
-    total_receita_competencia = receita_quartos + receita_consumo + receita_outros
-
-    # Nº de reservas no período (considerando status fechados)
-    reservas_no_periodo = reservas_qs.count()
-
-    # --- Séries para gráficos: Receita vs Despesa por mês ---
-    # Baseada em pagamentos (caixa) e gastos (saídas)
+    # Gráfico 1: Fluxo de Caixa Mensal (Request #1 - CORRIGIDO)
     receitas_por_mes = (
         pagamentos_qs
         .annotate(periodo=TruncMonth('data_pagamento'))
         .values('periodo')
-        .annotate(total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))))
+        .annotate(total_receita=Coalesce(Sum('valor'), Value(0, output_field=DecimalField())))
         .order_by('periodo')
     )
-
     despesas_por_mes = (
         gastos_qs
         .annotate(periodo=TruncMonth('data_gasto'))
         .values('periodo')
-        .annotate(total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))))
+        .annotate(total_despesa=Coalesce(Sum('valor'), Value(0, output_field=DecimalField())))
         .order_by('periodo')
     )
 
-    def normalize_date(dt):
-        """Converte datetime ou date para date"""
-        if isinstance(dt, datetime):
-            return dt.date()  # remove hora
-        return dt
+    # Merge dos dados mensais (Formato {mes: {'receita': R, 'despesa': D}})
+    fluxo_map = {}
+    all_months = set()
 
-    # Mesclando meses
-    mapa_receita = {item['periodo']: float(item['total']) for item in receitas_por_mes}
-    mapa_despesa = {item['periodo']: float(item['total']) for item in despesas_por_mes}
-    meses = sorted(
-        set(normalize_date(k) for k in mapa_receita.keys()) |
-        set(normalize_date(k) for k in mapa_despesa.keys())
-    )
+    for item in receitas_por_mes:
+        month_date = item['periodo'].date() if isinstance(item['periodo'], datetime) else item['periodo'] 
 
-    fluxo_caixa_mensal = []
-    for m in meses:
-        r = mapa_receita.get(m, 0.0)
-        d = mapa_despesa.get(m, 0.0)
-        saldo = r - d
-        # Label amigável: MM/AAAA
-        label = f"{m.month:02d}/{m.year}"
-        fluxo_caixa_mensal.append({
-            "label": label,
-            "receita": r,
-            "despesa": d,
-            "saldo": saldo,
+        all_months.add(month_date)
+        if month_date not in fluxo_map:
+            fluxo_map[month_date] = {'receita': 0, 'despesa': 0}
+        fluxo_map[month_date]['receita'] = float(item['total_receita'])
+
+    for item in despesas_por_mes:
+        month_date = item['periodo'].date() if isinstance(item['periodo'], datetime) else item['periodo']
+
+        all_months.add(month_date)
+        if month_date not in fluxo_map:
+            fluxo_map[month_date] = {'receita': 0, 'despesa': 0}
+        fluxo_map[month_date]['despesa'] = float(item['total_despesa'])
+
+    # Ordena os meses e formata para o gráfico
+    fluxo_chart_data_list = []
+    for month in sorted(list(all_months)):
+        data = fluxo_map.get(month, {'receita': 0, 'despesa': 0})
+        fluxo_chart_data_list.append({
+            "label": month.strftime('%m/%Y'),
+            "receita": data['receita'],
+            "despesa": data['despesa'],
+            "saldo": data['receita'] - data['despesa']
         })
+    # Passa a lista diretamente, o JS vai extrair labels e datasets
+    fluxo_chart_json = json.dumps(fluxo_chart_data_list) 
 
-    # Mês com maior receita (caixa)
-    mes_mais_vendido = None
-    if fluxo_caixa_mensal:
-        mes_mais_vendido = max(fluxo_caixa_mensal, key=lambda x: x['receita'])
+    # Gráfico 2: Receita por Origem (Request #3 - NOVO)
+    # Usamos Case/When para categorizar cada pagamento
+    receita_origem = pagamentos_qs.annotate(
+        origem=Case(
+            When(reserva__isnull=False, then=Value('Reservas')),
+            When(evento__isnull=False, then=Value('Eventos')),
+            # Adicione mais 'When' se tiver outras fontes (ex: consumo direto)
+            default=Value('Outros'), # Fallback
+            output_field=models.CharField(),
+        )
+    ).values('origem').annotate(
+        total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField()))
+    ).order_by('origem')
 
-    # Receita por categoria (pizza)
-    receita_por_categoria = [
-        {"label": "Quartos (acomodações)", "valor": float(receita_quartos)},
-        {"label": "Consumo (frigobar)", "valor": float(receita_consumo)},
-        {"label": "Outros", "valor": float(receita_outros)},
-    ]
+    receita_origem_data = {
+        'labels': [item['origem'] for item in receita_origem],
+        'data': [float(item['total']) for item in receita_origem],
+    }
+    receita_origem_json = json.dumps(receita_origem_data)
 
-    # ESTA CONSULTA: busca os 5 gastos mais recentes
-    gastos_recentes = Gasto.objects.order_by('-data_gasto')[:5]
+    # Gráfico 3: Despesas por Categoria (Request #3 - NOVO)
+    despesa_categoria = gastos_qs.values(
+        'categoria__nome' # Agrupa pelo nome da categoria relacionada
+    ).annotate(
+        total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField()))
+    ).order_by('-total') # Ordena do maior para o menor
 
+    despesa_categoria_data = {
+        'labels': [item['categoria__nome'] or 'Sem Categoria' for item in despesa_categoria],
+        'data': [float(item['total']) for item in despesa_categoria],
+    }
+    despesa_categoria_json = json.dumps(despesa_categoria_data)
+
+    # Gráfico 4: Receita por Forma de Pagamento (Request #3 - NOVO)
+    receita_forma_pag = pagamentos_qs.values(
+        'forma_pagamento__nome' # Agrupa pelo nome da forma de pagamento relacionada
+    ).annotate(
+        total=Coalesce(Sum('valor'), Value(0, output_field=DecimalField()))
+    ).order_by('-total') # Ordena do maior para o menor
+
+    receita_forma_pag_data = {
+        'labels': [item['forma_pagamento__nome'] or 'N/D' for item in receita_forma_pag],
+        'data': [float(item['total']) for item in receita_forma_pag],
+    }
+    receita_forma_pag_json = json.dumps(receita_forma_pag_data)
+    
+    # --- 5. ÚLTIMOS GASTOS (Mantido) ---
+    gastos_recentes = Gasto.objects.select_related('categoria').order_by('-data_gasto')[:5]
+
+    print("DEBUG Fluxo JSON:", fluxo_chart_json)
+    print("DEBUG Origem JSON:", receita_origem_json)
+    print("DEBUG Categoria JSON:", despesa_categoria_json)
+    print("DEBUG Forma Pag JSON:", receita_forma_pag_json)
+
+    # --- 6. CONTEXTO ---
     context = {
         # Filtros
-        "start": start_date,
-        "end": end_date,
+        "start_date": start_date_str, 
+        "end_date": end_date_str,
 
-        # KPIs (caixa e competência)
-        "total_entradas_caixa": float(total_entradas_caixa),
-        "despesas_total_periodo": float(despesas_total_periodo),
-        "lucro_caixa_periodo": float(lucro_caixa_periodo),
+        # KPIs Corrigidos
+        "total_recebido": total_recebido,
+        "total_despesas": total_despesas,
+        "lucro_liquido": lucro_liquido,
+        "ticket_medio": ticket_medio,
+        
+        # === PASSE OS DADOS PYTHON DIRETAMENTE ===
+        "fluxo_chart_json": fluxo_chart_data_list, # << PASSA A LISTA
+        "receita_origem_json": receita_origem_data, # << PASSA O DICIONÁRIO
+        "despesa_categoria_json": despesa_categoria_data, # << PASSA O DICIONÁRIO
+        "receita_forma_pag_json": receita_forma_pag_data, # << PASSA O DICIONÁRIO
+        # === FIM DA ALTERAÇÃO ===
 
-        "receita_quartos": float(receita_quartos),
-        "receita_consumo": float(receita_consumo),
-        "receita_outros": float(receita_outros),
-        "total_receita_competencia": float(total_receita_competencia),
-
-        "reservas_no_periodo": reservas_no_periodo,
-
-        # Séries de gráficos (usaremos json_script no template)
-        "fluxo_caixa_mensal": fluxo_caixa_mensal,
-        "receita_por_categoria": receita_por_categoria,
-
-        # Destaques
-        "mes_mais_vendido": mes_mais_vendido,
-
-        # Form de gastos
+        # Formulário e Lista de Gastos
         "gasto_form": gasto_form,
-
-        # 
         'gastos_recentes': gastos_recentes,
     }
 
@@ -1800,7 +2084,7 @@ class GastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
 class CategoriaGastoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'gestao.view_categoriagasto'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = CategoriaGasto
     template_name = 'gestao/categoria_gasto_list.html'
@@ -1810,7 +2094,7 @@ class CategoriaGastoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
 
 class CategoriaGastoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     permission_required = 'gestao.add_categoriagasto'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = CategoriaGasto
     form_class = CategoriaGastoForm
@@ -1820,7 +2104,7 @@ class CategoriaGastoCreateView(LoginRequiredMixin, PermissionRequiredMixin, Succ
 
 class CategoriaGastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     permission_required = 'gestao.change_categoriagasto'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = CategoriaGasto
     form_class = CategoriaGastoForm
@@ -1830,7 +2114,7 @@ class CategoriaGastoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Succ
 
 class CategoriaGastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     permission_required = 'gestao.delete_categoriagasto'
-    raise_exception = True  # Mostra erro 403 se não tiver permissão
+    raise_exception = True 
     
     model = CategoriaGasto
     template_name = 'gestao/categoria_gasto_confirm_delete.html'
@@ -1841,10 +2125,606 @@ class CategoriaGastoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
         messages.success(self.request, f"Categoria '{self.object}' foi excluída com sucesso.")
         return super().form_valid(form)
 
+   
+# ==========================================================
+# === VIEWS PARA PERIODO TARIFARIO                       ===
+# ==========================================================
+
+class PeriodoTarifarioListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_periodotarifario'
+    raise_exception = True
+
+    model = PeriodoTarifario
+    template_name = 'gestao/periodo_tarifario_list.html'
+    context_object_name = 'periodos'
+    paginate_by = 15 # Opcional: para paginação
+
+class PeriodoTarifarioCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    permission_required = 'gestao.add_periodotarifario'
+    raise_exception = True
+
+    model = PeriodoTarifario
+    form_class = PeriodoTarifarioForm
+    template_name = 'gestao/periodo_tarifario_form.html'
+    success_url = reverse_lazy('periodo_tarifario_list')
+    success_message = "Período '%(nome)s' criado com sucesso!"
+
+class PeriodoTarifarioUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_periodotarifario'
+    raise_exception = True
+
+    model = PeriodoTarifario
+    form_class = PeriodoTarifarioForm
+    template_name = 'gestao/periodo_tarifario_form.html' 
+    success_url = reverse_lazy('periodo_tarifario_list')
+    success_message = "Período '%(nome)s' atualizado com sucesso!"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        periodo = self.get_object()
+        
+        # Envia as datas formatadas para o JavaScript
+        if periodo.data_inicio:
+            context['data_inicio_js'] = periodo.data_inicio.strftime('%Y-%m-%d')
+        if periodo.data_fim:
+            context['data_fim_js'] = periodo.data_fim.strftime('%Y-%m-%d')
+            
+        return context
+
+class PeriodoTarifarioDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_periodotarifario'
+    raise_exception = True
+    
+    model = PeriodoTarifario
+    template_name = 'gestao/periodo_tarifario_confirm_delete.html' # Novo template de confirmação
+    success_url = reverse_lazy('periodo_tarifario_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f"O período tarifário '{self.object.nome}' foi excluído com sucesso.")
+        return super().form_valid(form)
+    
+# ==========================================================
+# === VIEWS PARA ESPAÇO                                  ===
+# ==========================================================
+
+class EspacoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_espaco'
+    raise_exception = True
+
+    model = Espaco
+    template_name = 'gestao/espaco_list.html'
+    context_object_name = 'espacos'
+    paginate_by = 10
+
+class EspacoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    permission_required = 'gestao.add_espaco'
+    raise_exception = True
+
+    model = Espaco
+    form_class = EspacoForm
+    template_name = 'gestao/espaco_form.html'
+    success_url = reverse_lazy('espaco_list')
+    success_message = "'%(nome)s' criado com sucesso!"
+
+class EspacoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_espaco'
+    raise_exception = True
+
+    model = Espaco
+    form_class = EspacoForm
+    template_name = 'gestao/espaco_form.html' # Reutiliza o mesmo template do 'adicionar'
+    success_url = reverse_lazy('espaco_list')
+    success_message = "'%(nome)s' atualizado com sucesso!"
+
+class EspacoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_espaco'
+    raise_exception = True
+
+    model = Espaco
+    template_name = 'gestao/espaco_confirm_delete.html' # Novo template de confirmação
+    success_url = reverse_lazy('espaco_list')
+    success_message = "Espaço/Item '%(nome)s' foi excluído com sucesso."
+
+    def form_valid(self, form):
+        messages.success(self.request, f"O período tarifário '{self.object.nome}' foi excluído com sucesso.")
+        return super().form_valid(form)
+
+# ==========================================================
+# === VIEWS PARA EVENTO                                  ===
+# ==========================================================
+
+class EventosDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = 'gestao.view_evento'
+    raise_exception = True 
+
+    model = Evento
+    template_name = 'gestao/eventos_dashboard.html'
+    context_object_name = 'eventos'
+    paginate_by = 10
+
+class EventoDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = 'gestao.view_evento'
+    raise_exception = True 
+
+    model = Evento
+    template_name = 'gestao/evento_detail.html'
+    context_object_name = 'evento'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        evento = self.get_object()
+        
+        # Busca todos os custos associados a este evento
+        custos_do_evento = evento.custos.all().order_by('-data_custo')
+        pagamentos_do_evento = evento.pagamentos.all().order_by('-data_pagamento')
+
+        context['custos_do_evento'] = custos_do_evento
+        context['pagamentos_do_evento'] = pagamentos_do_evento
+        
+        # Calcula o resumo financeiro do evento
+        total_custo = custos_do_evento.aggregate(Sum('valor'))['valor__sum'] or 0
+        total_pago = pagamentos_do_evento.aggregate(Sum('valor'))['valor__sum'] or 0
+
+        total_a_pagar = evento.valor_negociado + total_custo
+        saldo_devedor = total_a_pagar - total_pago
+        
+        context['resumo_financeiro'] = {
+            'valor_negociado': evento.valor_negociado,
+            'total_custo': total_custo,
+            'total_a_pagar': total_a_pagar,
+            'total_pago': total_pago,
+            'saldo_devedor': saldo_devedor,
+        }
+        return context
+
+class EventoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    permission_required = 'gestao.add_evento'
+    raise_exception = True 
+
+    model = Evento
+    form_class = EventoForm
+    template_name = 'gestao/evento_form.html'
+    success_url = reverse_lazy('eventos_dashboard') # <- Redireciona para o dashboard de eventos
+    success_message = "Evento '%(nome_evento)s' registrado com sucesso!"
+
+class EventoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_evento'
+    raise_exception = True 
+
+    model = Evento
+    form_class = EventoForm
+    template_name = 'gestao/evento_form.html' # Reutiliza o mesmo template do 'registrar'
+    success_url = reverse_lazy('eventos_dashboard')
+    success_message = "Evento '%(nome_evento)s' atualizado com sucesso!"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        evento = self.get_object()
+        
+        # Envia as datas formatadas para o JavaScript
+        if evento.data_inicio:
+            context['data_inicio_js'] = evento.data_inicio.strftime('%Y-%m-%dT%H:%M')
+        if evento.data_fim:
+            context['data_fim_js'] = evento.data_fim.strftime('%Y-%m-%dT%H:%M')
+            
+        return context
+
+class EventoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_evento'
+    raise_exception = True 
+
+    model = Evento
+    template_name = 'gestao/evento_confirm_delete.html' # Novo template de confirmação
+    success_url = reverse_lazy('eventos_dashboard')
+    success_message = "Evento '%(nome_evento)s' foi excluído com sucesso."
+
+    def form_valid(self, form):
+        nome_evento = self.object.nome_evento
+        messages.success(self.request, f"O evento '{nome_evento}' foi excluído com sucesso.")
+        return super().form_valid(form)
+    
+@login_required
+@permission_required('gestao.view_evento', raise_exception=True)
+def evento_relatorio_view(request):
+    
+    # --- 1. LÓGICA DE FILTRO POR DATA E BUSCA ---
+    today = timezone.localdate()
+    # Pega parâmetros da URL
+    query = request.GET.get('q', '').strip() # Termo de busca
+    start_date_str = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    
+    # Converte datas (com tratamento de erro básico)
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        start_date = today.replace(day=1)
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        
+    try:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        end_date = today
+        end_date_str = end_date.strftime('%Y-%m-%d')
+
+    # --- Query Base: Pagamentos de Eventos no Período ---
+    # Começamos pelos pagamentos, pois o extrato é sobre eles
+    pagamentos_base = Pagamento.objects.filter(
+        evento__isnull=False, 
+        data_pagamento__date__gte=start_date,
+        data_pagamento__date__lte=end_date
+    ).select_related(
+        'evento__cliente', 
+        'forma_pagamento'
+    ).order_by('evento_id', '-data_pagamento') # Ordena para facilitar o agrupamento
+
+    # Aplica filtro de busca (se houver)
+    if query:
+        pagamentos_base = pagamentos_base.filter(
+            Q(evento__nome_evento__icontains=query) |
+            Q(evento__cliente__nome_completo__icontains=query) |
+            Q(evento__cliente__cpf__icontains=query) 
+        )
+
+    # --- 2. AGRUPAMENTO POR EVENTO E COLETA DE DADOS ---
+    eventos_com_pagamentos = {} 
+    
+    for pag in pagamentos_base:
+        evento_id = pag.evento_id
+        if evento_id not in eventos_com_pagamentos:
+            eventos_com_pagamentos[evento_id] = {
+                'evento': pag.evento, 
+                'pagamentos': [],
+                'custos': [], 
+                'total_pago': 0,
+                'total_a_receber': 0,
+                'saldo_devedor': 0,
+                'total_custos_do_evento': 0 # <<< Adiciona campo para o total de custos
+            }
+        eventos_com_pagamentos[evento_id]['pagamentos'].append(pag)
+        eventos_com_pagamentos[evento_id]['total_pago'] += pag.valor
+
+    eventos_ids = list(eventos_com_pagamentos.keys())
+    if eventos_ids:
+        custos_eventos = CustoEvento.objects.filter(evento_id__in=eventos_ids).order_by('-data_custo')
+        for custo in custos_eventos:
+            if custo.evento_id in eventos_com_pagamentos:
+                eventos_com_pagamentos[custo.evento_id]['custos'].append(custo)
+        
+        # Calcula totais para cada evento
+        for evento_id in eventos_ids:
+            evento_obj = eventos_com_pagamentos[evento_id]['evento']
+            # === CALCULA E ARMAZENA O TOTAL DE CUSTOS ===
+            total_custos_do_evento = sum(c.valor for c in eventos_com_pagamentos[evento_id]['custos'])
+            eventos_com_pagamentos[evento_id]['total_custos_do_evento'] = total_custos_do_evento
+            # === FIM DA ALTERAÇÃO ===
+            
+            total_a_receber_evento = (evento_obj.valor_negociado or 0) + total_custos_do_evento
+            total_pago_evento = eventos_com_pagamentos[evento_id]['total_pago'] 
+
+            eventos_com_pagamentos[evento_id]['total_a_receber'] = total_a_receber_evento
+            eventos_com_pagamentos[evento_id]['saldo_devedor'] = total_a_receber_evento - total_pago_evento 
+
+    lista_extrato = list(eventos_com_pagamentos.values())
+    
+    # --- 3. PAGINAÇÃO DO EXTRATO ---
+    paginator = Paginator(lista_extrato, 5) # 5 eventos por página (ajuste se necessário)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # --- 4. CÁLCULO DOS KPIs E GRÁFICOS (BASEADO NOS FILTROS) ---
+    # Recalcula alguns totais baseado nos pagamentos filtrados pela busca (se houver)
+    pagamentos_filtrados_kpi = pagamentos_base # Usa o mesmo queryset já filtrado pela busca
+
+    total_faturado_kpi = pagamentos_filtrados_kpi.aggregate(total=Sum('valor'))['total'] or 0
+
+    # Para "Total a Receber", "Nº Eventos", "Média Convidados" e Rankings,
+    # usamos os eventos únicos que tiveram pagamentos no período filtrado.
+    eventos_unicos_ids = pagamentos_filtrados_kpi.values_list('evento_id', flat=True).distinct()
+    eventos_filtrados_kpi = Evento.objects.filter(pk__in=eventos_unicos_ids)
+
+    total_negociado_kpi = eventos_filtrados_kpi.aggregate(total=Sum('valor_negociado'))['total'] or 0
+    total_custos_kpi = CustoEvento.objects.filter(evento__in=eventos_filtrados_kpi).aggregate(total=Sum('valor'))['total'] or 0
+    total_a_receber_kpi = total_negociado_kpi + total_custos_kpi
+    
+    num_eventos_kpi = eventos_filtrados_kpi.count()
+    media_convidados_kpi = eventos_filtrados_kpi.aggregate(media=Avg('numero_convidados'))['media'] or 0
+
+    # Gráfico: Recebimento Mensal (usando pagamentos filtrados)
+    faturamento_mensal = (
+        pagamentos_filtrados_kpi.annotate(mes=TruncMonth('data_pagamento'))
+        .values('mes').annotate(total=Sum('valor')).order_by('mes')
+    )
+    faturamento_chart_data = {
+        'labels': [item['mes'].strftime('%m/%Y') for item in faturamento_mensal],
+        'data': [float(item['total']) for item in faturamento_mensal],
+    }
+
+    # Gráfico: Receita por Categoria (usando totais recalculados)
+    receita_categoria_data = {
+        'labels': ['Valor Negociado (Contratos)', 'Custos Adicionais'],
+        'data': [float(total_negociado_kpi), float(total_custos_kpi)],
+    }
+
+    # Gráficos: Rankings (usando eventos filtrados)
+    espacos_ranking = (
+        eventos_filtrados_kpi.filter(espacos__tipo='espaco')
+        .values('espacos__nome').annotate(total=Count('id')).order_by('-total')[:5]
+    )
+    espacos_chart_data = {
+        'labels': [item['espacos__nome'] for item in espacos_ranking if item['espacos__nome']],
+        'data': [item['total'] for item in espacos_ranking if item['espacos__nome']],
+    }
+    itens_ranking = (
+        eventos_filtrados_kpi.filter(espacos__tipo='item_servico')
+        .values('espacos__nome').annotate(total=Count('id')).order_by('-total')[:5]
+    )
+    itens_chart_data = {
+        'labels': [item['espacos__nome'] for item in itens_ranking if item['espacos__nome']],
+        'data': [item['total'] for item in itens_ranking if item['espacos__nome']],
+    }
+
+    # --- 5. CONTEXTO PARA O TEMPLATE ---
+    context = {
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'query': query, # Passa a query de volta para o formulário
+        
+        # KPIs (agora baseados nos filtros aplicados)
+        'total_faturado': total_faturado_kpi,
+        'total_a_receber': total_a_receber_kpi, 
+        'num_eventos': num_eventos_kpi,
+        'media_convidados': media_convidados_kpi,
+        
+        # Chart JSONs
+        'faturamento_chart_json': json.dumps(faturamento_chart_data),
+        'receita_categoria_json': json.dumps(receita_categoria_data),
+        'espacos_chart_json': json.dumps(espacos_chart_data),
+        'itens_chart_json': json.dumps(itens_chart_data), 
+        
+        # Extrato Paginado
+        'page_obj': page_obj, # O objeto da página atual do Paginator
+        'paginator': paginator, # O objeto Paginator (para controles de página)
+        'object_list': page_obj.object_list # Para compatibilidade com template de paginação
+    }
+    return render(request, 'gestao/evento_relatorio.html', context)
+
+# ==========================================================
+# === VIEWS PARA ALTERAÇÃO DE STATUS DO EVENTO           ===
+# ==========================================================
+
+@login_required
+@permission_required('gestao.change_evento', raise_exception=True)
+@require_POST # Garante que só funciona com POST (formulário)
+def confirmar_evento_status(request, pk):
+    evento = get_object_or_404(Evento, pk=pk)
+    if evento.status == 'orcamento':
+        evento.status = 'confirmado'
+        evento.save()
+        messages.success(request, f"O evento '{evento.nome_evento}' foi confirmado com sucesso!")
+    else:
+        messages.warning(request, "Ação inválida. O evento não está no status 'Orçamento'.")
+    return redirect('evento_detail', pk=evento.pk)
+
+@login_required
+@permission_required('gestao.change_evento', raise_exception=True)
+@require_POST
+def realizar_evento_status(request, pk):
+    evento = get_object_or_404(Evento, pk=pk)
+    if evento.status == 'confirmado':
+        # --- VERIFICAÇÃO DO SALDO ---
+        if evento.saldo_devedor() <= 0:
+            evento.status = 'realizado'
+            evento.save()
+            messages.success(request, f"O evento '{evento.nome_evento}' foi marcado como realizado!")
+        else:
+            messages.error(request, "Não é possível marcar como realizado. O evento ainda possui saldo devedor.")
+        # --- FIM DA VERIFICAÇÃO ---
+    else:
+        messages.warning(request, "Ação inválida. O evento não está no status 'Confirmado'.")
+    return redirect('evento_detail', pk=evento.pk)
+
+@login_required
+@permission_required('gestao.change_evento', raise_exception=True)
+@require_POST
+def cancelar_evento_status(request, pk):
+    evento = get_object_or_404(Evento, pk=pk)
+    # Permite cancelar se for Orçamento ou Confirmado
+    if evento.status in ['orcamento', 'confirmado']:
+        evento.status = 'cancelado'
+        evento.save()
+        messages.info(request, f"O evento '{evento.nome_evento}' foi cancelado.")
+    # (Opcional: Descomente para permitir cancelar um evento Realizado)
+    # elif evento.status == 'realizado':
+    #     evento.status = 'cancelado'
+    #     evento.save()
+    #     messages.info(request, f"O evento '{evento.nome_evento}' foi cancelado.")
+    else:
+        messages.warning(request, f"Não é possível cancelar um evento com status '{evento.get_status_display()}'.")
+    return redirect('evento_detail', pk=evento.pk)
+
+# ==========================================================
+# === VIEWS PARA CUSTO EVENTO                            ===
+# ==========================================================
+
+class CustoEventoCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    permission_required = 'gestao.add_custo'
+    raise_exception = True 
+
+    model = CustoEvento
+    form_class = CustoEventoForm
+    template_name = 'gestao/custo_form.html'
+    success_message = "Custo adicionado ao evento com sucesso!"
+
+    def dispatch(self, request, *args, **kwargs):
+        # --- VERIFICAÇÃO DE STATUS ---
+        evento = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        if evento.status == 'orcamento':
+            messages.error(request, "Não é possível adicionar custos a um evento que ainda é um orçamento. Confirme o evento primeiro.")
+            return redirect('evento_detail', pk=evento.pk)
+        # --- FIM DA VERIFICAÇÃO ---
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # 1. Busca o objeto do Evento usando a 'evento_pk' da URL
+        evento = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        
+        # 2. Associa o evento ao custo ANTES de salvar no banco
+        form.instance.evento = evento
+        
+        # 3. Adiciona a mensagem de sucesso (se não usar SuccessMessageMixin)
+        # messages.success(self.request, self.success_message)
+        
+        # 4. Chama o método pai, que salva o objeto no banco
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        # Seu método aqui está CORRETO e é necessário para o botão "Cancelar"
+        context = super().get_context_data(**kwargs)
+        context['evento'] = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        return context
+
+    def get_success_url(self):
+        # Seu método aqui está CORRETO
+        return reverse_lazy('evento_detail', kwargs={'pk': self.kwargs['evento_pk']})
+
+class CustoEventoUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    permission_required = 'gestao.change_custo'
+    raise_exception = True
+
+    model = CustoEvento
+    form_class = CustoEventoForm
+    template_name = 'gestao/custo_form.html'
+    success_message = "Custo atualizado com sucesso!"
+
+    def get_success_url(self):
+        # CORREÇÃO: Pega o 'evento' a partir do 'custo' (self.object)
+        # e retorna para a página de detalhe daquele evento.
+        evento_pk = self.object.evento.pk
+        return reverse_lazy('evento_detail', kwargs={'pk': evento_pk})
+
+    def get_context_data(self, **kwargs):
+        # CORREÇÃO: Adiciona o 'evento' ao contexto para o botão "Cancelar"
+        context = super().get_context_data(**kwargs)
+        context['evento'] = self.object.evento
+        
+        return context
 
 
+class CustoEventoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_custo'
+    raise_exception = True
+    
+    model = CustoEvento
+    template_name = 'gestao/custo_confirm_delete.html'
 
+    def get_success_url(self):
+        # Pega o 'evento' a partir do 'custo' (self.object)
+        # ANTES dele ser deletado.
+        evento_pk = self.object.evento.pk
+        return reverse_lazy('evento_detail', kwargs={'pk': evento_pk})
 
+    def form_valid(self, form):
+        messages.success(self.request, f"'{self.object}' foi excluído com sucesso.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        # Adicionar o 'evento' ao contexto para botões
+        # de "Cancelar" na página de confirmação.
+        context = super().get_context_data(**kwargs)
+        context['evento'] = self.object.evento
+        return context    
+
+# ==========================================================
+# === VIEWS PARA PAGAMENTO EVENTO                        ===
+# ==========================================================
+
+class PagamentoEventoCreateView(LoginRequiredMixin, CreateView):
+    permission_required = 'gestao.add_pagamento'
+    raise_exception = True
+
+    model = Pagamento
+    form_class = PagamentoEventoForm
+    template_name = 'gestao/pagamento_form.html'
+    success_message = "Pagamento adicionado ao evento com sucesso!"
+
+    def dispatch(self, request, *args, **kwargs):
+        # --- VERIFICAÇÃO DE STATUS ---
+        evento = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        if evento.status == 'orcamento':
+            messages.error(request, "Não é possível adicionar pagamentos a um evento que ainda é um orçamento. Confirme o evento primeiro.")
+            return redirect('evento_detail', pk=evento.pk)
+        # --- FIM DA VERIFICAÇÃO ---
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        # Associa o pagamento ao EVENTO
+        evento = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        form.instance.evento = evento
+        return super().form_valid(form)
+    
+    def get_initial(self):
+        """ Opcional: sugerir saldo devedor do evento """
+        evento = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        initial = super().get_initial()
+        
+        # Se você tiver um método 'saldo_devedor()' no seu modelo Evento:
+        if hasattr(evento, 'saldo_devedor'):
+            initial['valor'] = evento.saldo_devedor()
+        return initial
+
+    def get_context_data(self, **kwargs):
+        # Envia o evento para o template (para o botão "Cancelar")
+        context = super().get_context_data(**kwargs)
+        context['evento'] = get_object_or_404(Evento, pk=self.kwargs['evento_pk'])
+        return context
+
+    def get_success_url(self):
+        # Redireciona de volta para o EVENTO
+        return reverse_lazy('evento_detail', kwargs={'pk': self.kwargs['evento_pk']})
+
+class PagamentoEventoUpdateView(LoginRequiredMixin, UpdateView):
+    permission_required = 'gestao.change_pagamento'
+    raise_exception = True
+
+    model = Pagamento
+    form_class = PagamentoEventoForm
+    template_name = 'gestao/pagamento_form.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['evento'] = self.object.evento
+        return context
+    
+    def get_success_url(self):
+        if self.object.evento:
+            return reverse_lazy('evento_detail', kwargs={'pk': self.object.evento.pk})
+        elif self.object.reserva:
+            return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+        
+        # Fallback
+        messages.warning(self.request, "Pagamento sem evento ou reserva associado.")
+        return reverse_lazy('eventos')
+
+class PagamentoEventoDeleteView(LoginRequiredMixin, DeleteView):
+    permission_required = 'gestao.delete_pagamento'
+    raise_exception = True
+
+    model = Pagamento
+    template_name = 'gestao/pagamento_confirm_delete.html'
+    
+    def get_success_url(self):
+        if self.object.evento:
+            messages.success(self.request, f"Pagamento de R$ {self.object.valor} excluído do evento.")
+            return reverse_lazy('evento_detail', kwargs={'pk': self.object.evento.pk})
+        
+        if self.object.reserva:
+            messages.success(self.request, f"Pagamento de R$ {self.object.valor} excluído da reserva.")
+            return reverse_lazy('reserva_detail', kwargs={'pk': self.object.reserva.pk})
+        
+        # Fallback: volta para lista de eventos
+        messages.success(self.request, f"Pagamento de R$ {self.object.valor} excluído.")
+        return reverse_lazy('eventos')
 
 
 # ADICIONE ESTA NOVA VIEW DE DIAGNÓSTICO

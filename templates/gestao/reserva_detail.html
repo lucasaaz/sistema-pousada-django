@@ -1,7 +1,7 @@
-<!-- ========================================================================== -->
-<!-- ARQUIVO: templates/gestao/reserva_detail.html (ATUALIZADO)                 -->
-<!-- DESCRIÇÃO: Melhora a lógica dos botões de ação e feedback ao utilizador. -->
-<!-- ========================================================================== -->
+<!-- ==========================================================================-->
+<!-- ARQUIVO: templates/gestao/reserva_detail.html                             -->
+<!-- DESCRIÇÃO: Melhora a lógica dos botões de ação e feedback ao utilizador.  -->
+<!-- ==========================================================================-->
 {% extends 'base.html' %}
 {% block title %}Detalhes da Reserva{% endblock %}
 {% block content %}
@@ -22,7 +22,7 @@
                 </a>
             </li>
             <li>
-                <a class="dropdown-item" href="{% url 'enviar_email_reserva' reserva.pk %}">
+                <a class="dropdown-item" href="{% url 'imprimir_contrato_checkin' reserva.pk %}">
                     <i class="bi bi-envelope me-2"></i>Enviar por E-mail
                 </a>
             </li>
@@ -116,7 +116,7 @@
         <div class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">Pagamentos
                 {% if perms.gestao.add_pagamento %}
-                    <a href="{% url 'pagamento_add' reserva.pk %}" class="btn btn-sm btn-success">
+                    <a href="{% url 'pagamento_reserva_add' reserva.pk %}" class="btn btn-sm btn-success">
                         <i class="bi bi-plus-lg"></i> Adicionar Pagamento
                     </a>
                 {% endif %}
@@ -154,9 +154,11 @@
         </div>
     </div>
     <div class="col-md-4">
-        <!-- ATUALIZAÇÃO: Lógica de Ações corrigida e mais clara -->
+        <!-- Lógica de Ações corrigida e mais clara -->
         <div class="card mb-4">
-            <div class="card-header">Ações</div>
+            <div class="card-header fw-bold">
+                <i class="bi bi-toggles me-1"></i> Ações
+            </div>
             <div class="card-body text-center">
                 {% if reserva.status == 'confirmada' %}
                     <form action="{% url 'fazer_checkin' reserva.pk %}" method="post" class="d-grid">
@@ -169,30 +171,36 @@
                         <button type="submit" class="btn btn-warning">Realizar Check-out</button>
                     </form>
                     {% if reserva.saldo_devedor > 0 %}
-                        <small class="text-danger">Atenção: A conta precisa ser paga antes do check-out.</small>
+                        <div class="alert alert-warning small p-2 mt-2 text-center" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            Atenção: A conta precisa ser paga antes do check-out.
+                            Saldo atual: <strong class="text-danger">R$ {{ reserva.saldo_devedor|floatformat:2 }}</strong>
+                        </div>
                     {% endif %}
                 {% else %}
                     <p class="text-muted">Nenhuma ação principal disponível para este status.</p>
                 {% endif %}
                 <hr>
                 <div class="d-grid gap-2">
-                    <a href="{% url 'reserva_edit' reserva.pk %}" class="btn btn-secondary btn-sm">Editar Detalhes/Valores</a>
+                    <a href="{% url 'reserva_edit' reserva.pk %}" class="btn btn-outline-secondary btn-sm">Editar Detalhes/Valores</a>
                     {% if reserva.status != 'cancelada' and reserva.status != 'checkout' %}
-                        <a href="{% url 'cancelar_reserva_status' reserva.pk %}" class="btn btn-danger btn-sm">Cancelar Reserva</a>
+                        <a href="{% url 'cancelar_reserva_status' reserva.pk %}" class="btn btn-outline-danger btn-sm w-100">Cancelar Reserva</a>
                     {% endif %}
                 </div>
             </div>
         </div>
         <!-- Card de Resumo Financeiro -->
         <div class="card">
-            <div class="card-header">Resumo Financeiro</div>
+            <div class="card-header">
+                <h6 class="m-0 fw-bold">Resumo Financeiro</h6>
+            </div>
             <ul class="list-group list-group-flush">
                 <li class="list-group-item d-flex justify-content-between"><span>Diárias:</span> <span>R$ {{ reserva.valor_total_diarias }}</span></li>
                 <li class="list-group-item d-flex justify-content-between"><span>(+) Consumo:</span> <span>R$ {{ reserva.valor_consumo }}</span></li>
                 <li class="list-group-item d-flex justify-content-between"><span>(+) Extras:</span> <span>R$ {{ reserva.valor_extra }}</span></li>
                 <li class="list-group-item d-flex justify-content-between text-danger"><span>(-) Desconto:</span> <span>R$ {{ reserva.desconto }}</span></li>
                 <li class="list-group-item d-flex justify-content-between fw-bold"><span>Total a Pagar:</span> <span>R$ {{ reserva.total_a_pagar }}</span></li>
-                <li class="list-group-item d-flex justify-content-between text-success"><span>Total Pago:</span> <span>R$ {{ reserva.total_pago }}</span></li>
+                <li class="list-group-item d-flex justify-content-between text-success"><span>Total Pago:</span> <span>R$ {{ reserva.total_pago|floatformat:2 }}</span></li>
                 <li class="list-group-item d-flex justify-content-between fw-bold {% if reserva.saldo_devedor > 0 %}bg-warning{% else %}bg-light{% endif %}">
                     <span>Saldo Devedor:</span> <span>R$ {{ reserva.saldo_devedor }}</span>
                 </li>

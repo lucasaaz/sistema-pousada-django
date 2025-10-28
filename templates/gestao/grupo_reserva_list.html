@@ -1,0 +1,53 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/grupo_reserva_list.html                          -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Grupos de Reserva{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Grupos de Reserva</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'grupo_reserva_add' %}" class="btn btn-primary shadow-sm"> <i class="bi bi-plus-lg me-1"></i> Criar Novo Grupo
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome do Grupo</th>
+                            <th>Cliente Responsável</th>
+                            <th>Nº de Reservas</th>
+                            <th>Data de Criação</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for grupo in grupos %}
+                        <tr class="{% cycle '' 'table-light' %}">
+                            <td class="fw-bold"> <a href="{% url 'grupo_reserva_detail' grupo.pk %}" class="nav-link">{{ grupo.nome_grupo }}</a></td>
+                            <td>{{ grupo.cliente_responsavel.nome_completo }}</td>
+                            <td>{{ grupo.reservas.count }}</td>
+                            <td>{{ grupo.data_criacao|date:"d/m/Y" }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'grupo_reserva_detail' grupo.pk %}" class="btn btn-info text-white fw-bold shadow-sm px-2 py-1" data-bs-toggle="tooltip" title="Ver Detalhes"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'grupo_reserva_edit' grupo.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'grupo_reserva_delete' grupo.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4">Nenhum grupo de reserva encontrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

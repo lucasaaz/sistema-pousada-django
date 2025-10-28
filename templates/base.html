@@ -1,7 +1,8 @@
 <!-- ========================================================================== -->
 <!-- ARQUIVO: templates/base.html (RESPONSIVO COM OFFCANVAS CORRIGIDO)          -->
 <!-- ========================================================================== -->
-{% load static %} <!doctype html>
+{% load static %} 
+<!doctype html>
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
@@ -18,50 +19,182 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body { 
-            display: flex; 
-            min-height: 100vh; 
-            flex-direction: column; 
-            font-family: 'Inter', sans-serif;  
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
         }
-        .main-container { display: flex; flex: 1; }
-        .content { flex: 1; padding: 2rem; }
-        .sidebar .nav-link { color: #272727; }
 
-        /* Sidebar estilo desktop */
+        /* ===== CORREÇÃO DO MODO COLAPSADO ===== */
+        body.sidebar-collapsed .sidebar {
+            width: 75px !important;
+        }
+
+        body.sidebar-collapsed #offcanvasSidebar {
+            width: 75px !important;
+        }
+
+        body.sidebar-collapsed .content {
+            margin-left: 75px !important;
+        }
+
+        body.sidebar-collapsed .sidebar .nav-link span,
+        body.sidebar-collapsed .sidebar .bi-chevron-down {
+            display: none !important;
+        }
+
+        body.sidebar-collapsed .sidebar .submenu {
+            display: none !important;
+        }
+
+        body.sidebar-collapsed .sidebar .nav-link {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0; /* remove espaçamento entre ícone e texto */
+            font-size: 1.3rem;
+            padding-left: 1 !important;
+            padding-right: 0 !important;
+        }
+
+        /* ===== CONTAINER PRINCIPAL ===== */
+        .main-container {
+            display: flex;
+            flex: 1;
+            transition: margin-left 0.3s ease;
+        }
+
+        .content {
+            flex: 1;
+            padding: 2rem;
+            transition: margin-left 0.3s ease;
+            margin-left: 280px; /* reserva espaço do menu lateral */
+        }
+
+        /* ===== MENU LATERAL ===== */
+        .sidebar {
+            justify-content: center;
+            align-items: center;
+            width: 280px;
+            position: fixed;
+            top: 56px; /* altura do header */
+            bottom: 0;
+            left: 0;
+            z-index: 1020;
+            background-color: #fff;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+            transition: width 0.3s ease;
+            scrollbar-gutter: stable;
+        }
+
+        /* Modo colapsado (desktop) */
+        .sidebar.collapsed {
+            width: 80px !important;
+        }
+        
+
+        .sidebar.collapsed .nav-link span,
+        .sidebar.collapsed .bi-chevron-down {
+            display: none !important;
+        }
+
+        .sidebar.collapsed .submenu {
+            display: none !important; /* mantém submenus ocultos quando colapsado */
+        }
+
+        .sidebar .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.75rem 1rem;
+            color: #272727;
+            transition: all 0.3s ease;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+        .sidebar .nav-link:hover i {
+            transform: scale(1.2);
+            color: #0d6efd; /* Azul Bootstrap */
+        }
+
+        .sidebar .nav-link.active {
+            background-color: #f0f0f0;
+            font-weight: 600;
+            border-left: 3px solid #0d6efd;
+        }
+
+        .sidebar.collapsed .nav-link {
+            justify-content: center;
+            padding: 0.75rem 0;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 1.4rem;
+        }
+
+        /* Quando o menu está colapsado, o conteúdo se ajusta */
+        .main-container.collapsed .content {
+            margin-left: 80px;
+        }
+
+        /* ===== DESKTOP ===== */
         @media (min-width: 768px) {
-            #sidebarMenu {
-                position: relative !important; /* Corrige posição */
+            #offcanvasSidebar {
+                position: fixed !important;
                 transform: none !important;
                 visibility: visible !important;
-                border-right: 1px solid #dee2e6;
                 width: 280px !important;
-                top: 0;
-                height: auto;
+                top: 42px;
+                height: calc(100vh - 56px);
+                border-right: 1px solid #dee2e6;
             }
+
+            /* Remove o backdrop do offcanvas no desktop */
             .offcanvas-backdrop {
-                display: none !important; /* Remove overlay no desktop */
+                display: none !important;
             }
         }
 
-        /* Mobile */
+        /* ===== MOBILE ===== */
         @media (max-width: 767px) {
-            .content { padding: 1rem; }
+            .sidebar {
+                position: static;
+                width: 100%;
+            }
+            .content {
+                margin-left: 0 !important;
+                padding: 1rem;
+            }
+        }
+
+        /* Transição suave no mobile */
+        .sidebar.offcanvas-start {
+            transition: none;
         }
     </style>
 </head>
 <body>
 
+<!-- ===== HEADER SUPERIOR ===== -->
 <header class="navbar navbar-dark bg-dark sticky-top flex-md-nowrap p-0 shadow">
     <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6" href="{% url 'dashboard' %}">
         Pousada Manager Pro
     </a>
     
-    <!-- Botão hamburguer no mobile -->
-    <button class="navbar-toggler d-md-none ms-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+    <!-- Botão (desktop) para colapsar o menu lateral -->
+    <button id="menuToggleBtn" class="btn btn-dark border-0 px-3 d-none d-md-block">
+        <i class="bi bi-list fs-5"></i>
+    </button>
+
+    <!-- Botão hamburguer (mobile) -->
+    <button class="navbar-toggler d-md-none ms-2" type="button" 
+            data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar" aria-controls="offcanvasSidebar">
         <span class="navbar-toggler-icon"></span>
     </button>
 
+    <!-- Menu do usuário -->
     <div class="navbar-nav ms-auto">
         {% if user.is_authenticated %}
             <div class="nav-item dropdown">
@@ -88,36 +221,76 @@
     </div>
 </header>
 
+<!-- ===== CONTEÚDO PRINCIPAL ===== -->
 <div class="container-fluid main-container">
-    <!-- Sidebar Offcanvas -->
-    <div class="offcanvas offcanvas-start sidebar" tabindex="-1" id="sidebarMenu">
+
+    <!-- ===== MENU LATERAL / OFFCANVAS ===== -->
+    <div class="offcanvas offcanvas-start sidebar" tabindex="-1" id="offcanvasSidebar">
         <div class="offcanvas-header d-md-none">
             <h5 class="offcanvas-title">Menu</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
+        
         <div class="offcanvas-body p-0">
             <ul class="nav flex-column pt-3">
-                <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'reserva_list' %}"><i class="bi bi-calendar-check"></i> Reservas</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'calendario_reservas' %}"><i class="bi bi-grid-3x3-gap"></i> Calendário</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'cliente_list' %}"><i class="bi bi-people"></i> Clientes</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'acomodacao_list' %}"><i class="bi bi-building"></i> Acomodações</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'item_estoque_list' %}"><i class="bi bi-box-seam"></i> Estoque</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'vaga_estacionamento_list' %}"><i class="bi bi-p-square"></i> Estacionamento</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'relatorio_acomodacoes' %}"><i class="bi bi-graph-up"></i> Relatórios</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'reserva_list' %}"><i class="bi bi-calendar-check"></i><span>Reserva</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'grupo_reserva_list' %}"><i class="bi bi-people"></i><span>Reservas em Grupo</span> </a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'calendario_reservas' %}"><i class="bi bi-calendar3"></i><span>Calendário</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'cliente_list' %}"><i class="bi bi-person"></i><span>Cliente</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'acomodacao_list' %}"><i class="bi bi-building"></i><span>Acomodações</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'item_estoque_list' %}"><i class="bi bi-box-seam"></i><span>Estoque</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'vaga_estacionamento_list' %}"><i class="bi bi-p-square"></i><span>Estacionamento</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'relatorio_acomodacoes' %}"><i class="bi bi-graph-up"></i><span>Relatórios</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'eventos_dashboard' %}"><i class="bi bi-ticket-perforated"></i><span>Eventos</span></a></li>
+                
                 {% if perms.auth.change_user %}
-                <li class="nav-item"><a class="nav-link" href="{% url 'financeiro' %}"><i class="bi bi-currency-dollar"></i> Financeiro</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'financeiro' %}"><i class="bi bi-currency-dollar"></i><span>Financeiro</span></a></li>
                 {% endif %}
+
+                <!-- Submenu Configurações -->
                 <li class="nav-item">
-                    <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#configuracoesSubmenu" role="button" aria-expanded="false" aria-controls="configuracoesSubmenu">
-                        <span><i class="bi bi-gear"></i> Configurações</span>
-                        <i class="bi bi-chevron-down small"></i>
+                    <!-- Botão principal do submenu -->
+                    <a class="nav-link d-flex align-items-center justify-content-between"
+                    data-bs-toggle="collapse"
+                    href="#configuracoesSubmenu"
+                    role="button"
+                    aria-expanded="false"
+                    aria-controls="configuracoesSubmenu">
+
+                        <!-- Ícone e texto -->
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-gear-fill me-2"></i>
+                            <span>Configurações</span>
+                        </div>
+
+                        <!-- Ícone da seta -->
+                        <i class="bi bi-chevron-down small ms-2"></i>
                     </a>
-                    <div class="collapse" id="configuracoesSubmenu" data-bs-parent="#sidebarMenu">
-                        <ul class="nav flex-column submenu ms-3">
-                            <li class="nav-item"><a class="nav-link" href="{% url 'configuracao_hotel' %}">Dados do Hotel</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{% url 'forma_pagamento_list' %}">Formas de Pagamento</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{% url 'funcionario_list' %}">Funcionários</a></li>
+
+                    <!-- Submenu -->
+                    <div class="collapse ps-4" id="configuracoesSubmenu">
+                        <ul class="nav flex-column ms-2 border-start">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'periodo_tarifario_list' %}">
+                                    <i class="bi bi-calendar-range me-2"></i><span>Tarifário Dinâmico</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'configuracao_hotel' %}">
+                                    <i class="bi bi-building-gear me-2"></i><span>Dados do Hotel</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'forma_pagamento_list' %}">
+                                    <i class="bi bi-credit-card-2-front me-2"></i><span>Formas de Pagamento</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'funcionario_list' %}">
+                                    <i class="bi bi-people-fill me-2"></i><span>Funcionários</span>
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </li>
@@ -125,7 +298,7 @@
         </div>
     </div>
 
-    <!-- Conteúdo -->
+     <!-- ===== ÁREA DE CONTEÚDO ===== -->
     <main class="content">
         {% if messages %}
             <div class="container-fluid px-md-4 pt-3">
@@ -137,8 +310,7 @@
                 {% endfor %}
             </div>
         {% endif %}
-        {% block content %}
-        {% endblock %}
+        {% block content %}{% endblock %}
     </main>
 </div>
 
@@ -152,6 +324,23 @@
 <script src="https://unpkg.com/imask"></script>
 
 {% block scripts %}{% endblock %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const menuToggleBtn = document.getElementById("menuToggleBtn");
+    const body = document.body;
+
+    menuToggleBtn.addEventListener("click", function() {
+        body.classList.toggle("sidebar-collapsed");
+        localStorage.setItem("sidebarCollapsed", body.classList.contains("sidebar-collapsed"));
+    });
+
+    // Aplica estado salvo
+    if (localStorage.getItem("sidebarCollapsed") === "true") {
+        body.classList.add("sidebar-collapsed");
+    }
+});
+</script>
 
 </body>
 </html>

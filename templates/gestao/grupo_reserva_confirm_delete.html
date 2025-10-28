@@ -1,0 +1,25 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/grupo_reserva_confirm_delete.html                -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Confirmar Exclusão{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Excluir Grupo de Reserva</h1>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir o grupo "<strong>{{ object.nome_grupo }}</strong>"?</p>
+            <p class="text-danger">Atenção: As reservas individuais dentro deste grupo **não** serão excluídas, apenas a "pasta" que as agrupa.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <a href="{% url 'grupo_reserva_list' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Sim, tenho certeza</button>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

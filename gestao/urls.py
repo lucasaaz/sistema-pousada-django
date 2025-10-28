@@ -22,8 +22,7 @@ urlpatterns = [
     # URLs para Clientes
     path('clientes/', cliente_list_view, name='cliente_list'),
     path('clientes/adicionar/', cliente_create_view, name='cliente_add'),
-    path('clientes/editar/<int:pk>/', cliente_update_view, name='cliente_edit'),      
-    path('clientes/debug/upload-check/', views.upload_debug_view, name='cliente_upload_debug'),
+    path('clientes/editar/<int:pk>/', cliente_update_view, name='cliente_edit'),     
     path('clientes/excluir/<int:pk>/', cliente_delete_view, name='cliente_delete'),   
 
     # URLs para Tipos de Acomodação
@@ -46,7 +45,14 @@ urlpatterns = [
     path('reservas/cancelar/<int:pk>/', views.ReservaDeleteView.as_view(), name='reserva_delete'),
     path('select2/', include('django_select2.urls')),
     path('api/buscar-clientes/', views.buscar_clientes_view, name='api_buscar_clientes'),
-    path('reservas/<int:pk>/cancelar-status/', views.cancelar_reserva_status_view, name='cancelar_reserva_status'), # ROTA PARA A AÇÃO DE CANCELAR O STATUS
+    path('reservas/<int:pk>/cancelar-status/', views.cancelar_reserva_status_view, name='cancelar_reserva_status'),
+
+    # URLs para Reservas em Grupos
+    path('grupos-reserva/', views.GrupoReservaListView.as_view(), name='grupo_reserva_list'),
+    path('grupos-reserva/adicionar/', views.GrupoReservaCreateView.as_view(), name='grupo_reserva_add'),
+    path('grupos-reserva/<int:pk>/', views.GrupoReservaDetailView.as_view(), name='grupo_reserva_detail'),
+    path('grupos-reserva/<int:pk>/editar/', views.GrupoReservaUpdateView.as_view(), name='grupo_reserva_edit'),
+    path('grupos-reserva/<int:pk>/excluir/', views.GrupoReservaDeleteView.as_view(), name='grupo_reserva_delete'),
 
     # URLs para as ações de check-in e check-out
     path('reservas/checkin/<int:pk>/', views.fazer_checkin, name='fazer_checkin'),
@@ -74,7 +80,8 @@ urlpatterns = [
     path('item-frigobar/<int:item_frigobar_pk>/registrar-consumo/', views.registrar_consumo_view, name='registrar_consumo_frigobar'),
 
     # URLs para Pagamentos
-    path('reserva/<int:reserva_pk>/pagamento/adicionar/', views.pagamento_create_view, name='pagamento_add'),
+    # path('reserva/<int:reserva_pk>/pagamento/adicionar/', views.pagamento_create_view, name='pagamento_add'),
+    path('reserva/<int:reserva_pk>/adicionar-pagamento/', views.PagamentoReservaCreateView.as_view(), name='pagamento_reserva_add'),
     path('pagamento/<int:pk>/editar/', views.PagamentoUpdateView.as_view(), name='pagamento_edit'),
     path('pagamento/<int:pk>/excluir/', views.PagamentoDeleteView.as_view(), name='pagamento_delete'),
 
@@ -83,7 +90,6 @@ urlpatterns = [
     path('pagamentos/formas/adicionar/', views.FormaPagamentoCreateView.as_view(), name='forma_pagamento_add'),
     path('pagamentos/formas/editar/<int:pk>/', views.FormaPagamentoUpdateView.as_view(), name='forma_pagamento_edit'),
     path('pagamentos/formas/excluir/<int:pk>/', views.FormaPagamentoDeleteView.as_view(), name='forma_pagamento_delete'),
-    path('reservas/<int:reserva_pk>/adicionar-pagamento/', views.pagamento_create_view, name='pagamento_add'),
 
     # URLs para Vagas de Estacionamento
     path('estacionamento/', views.VagaEstacionamentoListView.as_view(), name='vaga_estacionamento_list'),
@@ -137,5 +143,40 @@ urlpatterns = [
     # URL para o Calendário de Reservas    
     path('calendario/', views.CalendarioReservasView.as_view(), name='calendario_reservas'),
     path('api/reservas-calendario/', views.reservas_calendario_api, name='api_reservas_calendario'),
+
+    # URL para o Tarifario
+    path('tarifarios/', views.PeriodoTarifarioListView.as_view(), name='periodo_tarifario_list'),
+    path('tarifarios/adicionar/', views.PeriodoTarifarioCreateView.as_view(), name='periodo_tarifario_add'),
+    path('tarifarios/<int:pk>/editar/', views.PeriodoTarifarioUpdateView.as_view(), name='periodo_tarifario_edit'),
+    path('tarifarios/<int:pk>/excluir/', views.PeriodoTarifarioDeleteView.as_view(), name='periodo_tarifario_delete'),
+
+    # URL para o Espaço 
+    path('espacos/', views.EspacoListView.as_view(), name='espaco_list'),
+    path('espacos/adicionar/', views.EspacoCreateView.as_view(), name='espaco_add'),
+    path('espacos/<int:pk>/editar/', views.EspacoUpdateView.as_view(), name='espaco_edit'),
+    path('espacos/<int:pk>/excluir/', views.EspacoDeleteView.as_view(), name='espaco_delete'),
+    
+    # URL para o Evento
+    path('eventos/', views.EventosDashboardView.as_view(), name='eventos_dashboard'),
+    path('eventos/relatorio/', views.evento_relatorio_view, name='evento_relatorio'),
+    path('eventos/<int:pk>/', views.EventoDetailView.as_view(), name='evento_detail'),
+    path('eventos/registrar/', views.EventoCreateView.as_view(), name='evento_add'),
+    path('eventos/<int:pk>/editar/', views.EventoUpdateView.as_view(), name='evento_edit'),
+    path('eventos/<int:pk>/excluir/', views.EventoDeleteView.as_view(), name='evento_delete'),
+
+    # URLS para Status evento
+    path('eventos/<int:pk>/confirmar/', views.confirmar_evento_status, name='confirmar_evento_status'),
+    path('eventos/<int:pk>/realizar/', views.realizar_evento_status, name='realizar_evento_status'),
+    path('eventos/<int:pk>/cancelar/', views.cancelar_evento_status, name='cancelar_evento_status'),
+
+    # URLs para Custos do Evento
+    path('evento/<int:evento_pk>/adicionar-custo/', views.CustoEventoCreateView.as_view(), name='custo_evento_add'),
+    path('custos/<int:pk>/editar/', views.CustoEventoUpdateView.as_view(), name='custo_evento_edit'),
+    path('custos/<int:pk>/excluir/', views.CustoEventoDeleteView.as_view(), name='custo_evento_delete'),
+
+    # URLs para Pagamentos do Evento 
+    path('evento/<int:evento_pk>/adicionar-pagamento/', views.PagamentoEventoCreateView.as_view(), name='pagamento_evento_add'),
+    path('pagamento/<int:pk>/editar/', views.PagamentoEventoUpdateView.as_view(), name='pagamento_evento_edit'),
+    path('pagamento/<int:pk>/excluir/', views.PagamentoEventoDeleteView.as_view(), name='pagamento_evento_delete'),
 
 ]

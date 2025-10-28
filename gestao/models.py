@@ -5,6 +5,7 @@
 from django.db import models
 from django.utils import timezone
 from django.db.models import Sum
+from django.core.exceptions import ValidationError
 from simple_history.models import HistoricalRecords
 
 # Módulo: Configurações da Pousada/Hotel
@@ -12,6 +13,7 @@ class ConfiguracaoHotel(models.Model):
     nome = models.CharField(max_length=100, help_text="Nome do Hotel/Pousada")
     endereco = models.CharField(max_length=255)
     logo = models.ImageField(upload_to='logos/', null=True, blank=True)
+    history = HistoricalRecords()
     
     def __str__(self):
         return self.nome
@@ -138,6 +140,21 @@ class ItemFrigobar(models.Model):
     quantidade = models.PositiveIntegerField(default=1)
     history = HistoricalRecords()
 
+#  Módulo: Reservas em Grupo
+class GrupoReserva(models.Model):
+    nome_grupo = models.CharField("Nome do Grupo", max_length=150, help_text="Ex: Excursão Família Silva")
+    cliente_responsavel = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='grupos_liderados')
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    observacoes = models.TextField(blank=True, null=True)
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return self.nome_grupo
+
+    class Meta:
+        verbose_name = "Grupo de Reserva"
+        verbose_name_plural = "Grupos de Reserva"
+
 # Módulo: Reservas
 class Reserva(models.Model):
     STATUS_CHOICES = (
@@ -158,6 +175,7 @@ class Reserva(models.Model):
     num_criancas_12 = models.PositiveIntegerField("N° Crianças de 6 a 12 anos", default=0, help_text="Crianças de 6 a 12 anos") 
     valor_total_diarias = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     placa_automovel = models.CharField(max_length=15, null=True, blank=True, verbose_name="Placa do Automóvel")
+    tipo_tarifa = models.CharField(max_length=20,choices=[('diaria', 'Diária'), ('pacote', 'Pacote')],default='diaria')
     history = HistoricalRecords()
     
     # Valores calculados no checkout
@@ -165,6 +183,14 @@ class Reserva(models.Model):
     desconto = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     valor_extra = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, help_text="Taxas ou valores adicionais.")
     valor_total_pago = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    grupo = models.ForeignKey(
+        GrupoReserva, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reservas'
+    )
 
     def __str__(self):
         return f"Reserva de {self.cliente.nome_completo} para {self.acomodacao.numero}"
@@ -220,11 +246,33 @@ class FormaPagamento(models.Model):
 
 # Módulo: Pagamentos
 class Pagamento(models.Model):
-    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='pagamentos')
+    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='pagamentos', null=True, blank=True)
     forma_pagamento = models.ForeignKey(FormaPagamento, on_delete=models.PROTECT)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data_pagamento = models.DateTimeField(default=timezone.now)
     history = HistoricalRecords()
+
+    evento = models.ForeignKey(
+        'Evento',
+        on_delete=models.CASCADE,
+        related_name='pagamentos',
+        null=True,
+        blank=True
+    )
+
+    def clean(self):
+        reserva = getattr(self, "reserva", None)
+        evento = getattr(self, "evento", None)
+
+        if reserva and evento:
+            raise ValidationError("O pagamento não pode estar associado a uma reserva e a um evento ao mesmo tempo.")
+
+    def __str__(self):
+        if self.reserva:
+            return f"Pagamento de R$ {self.valor} para a Reserva #{self.reserva.pk}"
+        elif self.evento:
+            return f"Pagamento de R$ {self.valor} para o Evento '{self.evento.nome_evento}'"
+        return f"Pagamento de R$ {self.valor}"
 
 # Módulo: Funcionários (usa o sistema de usuários do Django)
 # O controle de acesso é feito via Grupos e Permissões no painel /admin.
@@ -247,8 +295,16 @@ class Gasto(models.Model):
     descricao = models.CharField(max_length=255)
     categoria = models.ForeignKey(CategoriaGasto, on_delete=models.PROTECT, related_name='gastos')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
-    data_gasto = models.DateField(default=timezone.now, db_index=True)  # <= index
+    data_gasto = models.DateField(default=timezone.now, db_index=True)  
     history = HistoricalRecords()
+    
+    evento = models.ForeignKey(
+        'Evento', 
+        on_delete=models.SET_NULL, # Se o evento for deletado, o gasto não é, apenas perde o vínculo
+        null=True, 
+        blank=True, 
+        related_name='gastos'
+    )
 
     def __str__(self):
         return f"Gasto de R$ {self.valor} em {self.data_gasto.strftime('%d/%m/%Y')} ({self.categoria.nome})"
@@ -262,3 +318,134 @@ class ArquivoReserva(models.Model):
 
     def __str__(self):
         return f"Arquivo {self.id} da Reserva {self.reserva.id}"
+    
+# Módulo: Períodos Tarifários Especiais 
+class PeriodoTarifario(models.Model):
+    nome = models.CharField("Nome do Período", max_length=100, help_text="Ex: Réveillon 2025, Feriado de Tiradentes")
+    data_inicio = models.DateField("Data de Início")
+    data_fim = models.DateField("Data de Fim")
+    percentual_ajuste = models.DecimalField(
+        "Ajuste Percentual (%)", 
+        max_digits=5, 
+        decimal_places=2,
+        help_text="Use valores positivos para acréscimos (ex: 20.00 para +20%) e negativos para descontos (ex: -10.00 para -10%)."
+    )
+    ativo = models.BooleanField("Ativo", default=True, help_text="Desmarque para desativar esta regra temporariamente.")
+
+    acomodacoes = models.ManyToManyField(
+        'Acomodacao', 
+        blank=True, 
+    )
+
+    clientes = models.ManyToManyField(
+        'Cliente',
+        blank=True,
+    )
+    history = HistoricalRecords()
+
+    def __str__(self):
+        sinal = "+" if self.percentual_ajuste > 0 else ""
+        return f"{self.nome} ({self.data_inicio.strftime('%d/%m')} a {self.data_fim.strftime('%d/%m')}) | {sinal}{self.percentual_ajuste}%"
+
+    class Meta:
+        verbose_name = "Período Tarifário"
+        verbose_name_plural = "Períodos Tarifários"
+        ordering = ['data_inicio']
+
+# Módulo: Espaço
+class Espaco(models.Model):
+    TIPO_CHOICES = (
+        ('espaco', 'Espaço Físico'),       # Para Salão de Festas, Área da Piscina, etc.
+        ('item_servico', 'Item ou Serviço'), # Para Aluguel de Mesas, Cadeiras, etc.
+    )
+
+    # --- CAMPO ADICIONADO AQUI ---
+    tipo = models.CharField("Tipo", max_length=20, choices=TIPO_CHOICES, default='espaco')
+    
+    nome = models.CharField("Nome do Espaço/Item", max_length=100, unique=True)
+    descricao = models.TextField(blank=True, null=True)
+    
+    # --- HELP_TEXT ATUALIZADO ---
+    capacidade = models.PositiveIntegerField(
+        "Capacidade", 
+        null=True, 
+        blank=True,
+        help_text="Para 'Espaços Físicos', informe a capacidade máxima de pessoas."
+    )
+    valor_base = models.DecimalField("Valor Base (R$)", max_digits=10, decimal_places=2)
+    ativo = models.BooleanField(default=True)
+    history = HistoricalRecords()
+    
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        verbose_name = "Espaço ou Item Alugável"
+        verbose_name_plural = "Espaços e Itens Alugáveis"
+
+# Módulo: Evento
+class Evento(models.Model):
+    STATUS_CHOICES = (
+        ('orcamento', 'Orçamento'),
+        ('confirmado', 'Confirmado'),
+        ('realizado', 'Realizado'),
+        ('cancelado', 'Cancelado'),
+    )
+    nome_evento = models.CharField("Nome do Evento", max_length=150)
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='eventos')
+    espacos = models.ManyToManyField(Espaco, related_name='eventos', verbose_name="Espaços Selecionados")
+    data_inicio = models.DateTimeField("Início do Evento")
+    data_fim = models.DateTimeField("Fim do Evento")
+    numero_convidados = models.PositiveIntegerField("Nº de Convidados", default=1)
+    valor_negociado = models.DecimalField("Valor Total do Evento (R$)", max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='orcamento')
+    data_registro = models.DateTimeField(auto_now_add=True)
+    observacoes = models.TextField("Observações Adicionais", blank=True, null=True)
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return f"{self.nome_evento} - {self.cliente.nome_completo}"
+
+    def total_custos(self):
+        """ Calcula o total de custos extras (CustoEvento) """
+        # 'self.custos' usa o related_name='custos' do CustoEvento
+        total = self.custos.aggregate(total=Sum('valor'))['total']
+        return total or 0
+
+    def total_pagamentos(self):
+        """ Calcula o total de pagamentos já feitos """
+        # 'self.pagamentos' usa o related_name='pagamentos' do Pagamento
+        total = self.pagamentos.aggregate(total=Sum('valor'))['total']
+        return total or 0
+    
+    def total_a_pagar(self):
+        """ Calcula o valor negociado MAIS os custos extras """
+        # Garante que ambos são Decimais antes de somar
+        return (self.valor_negociado or 0) + self.total_custos()
+
+    def saldo_devedor(self):
+        """ Calcula o saldo restante a ser pago """
+        return self.total_a_pagar() - self.total_pagamentos()
+
+    class Meta:
+        verbose_name = "Evento"
+        verbose_name_plural = "Eventos"
+        ordering = ['-data_inicio']
+
+class CustoEvento(models.Model):
+    descricao = models.CharField(max_length=255)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data_custo = models.DateField("Data de Custo") 
+    history = HistoricalRecords()
+
+    evento = models.ForeignKey(
+        'Evento', 
+        on_delete=models.SET_NULL, # Se o evento for deletado, o custo não é, apenas perde o vínculo
+        null=True, 
+        blank=True, 
+        related_name='custos'
+    )
+
+    def __str__(self):
+        return f"Custo de R$ {self.valor} em {self.data_custo.strftime('%d/%m/%Y')}"

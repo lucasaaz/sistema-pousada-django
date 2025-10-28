@@ -5,9 +5,9 @@
 {% extends 'base.html' %}
 {% block title %}Calendário de Reservas{% endblock %}
 {% block content %}
-<main class="px-md-4 py-3">
-    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
-        <h1 class="h3 mb-0">
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h3">
             <i class="bi bi-calendar3 me-2"></i> Calendário de Reservas
         </h1>
     </div>
@@ -37,8 +37,8 @@
 <style>
     /* --- Tema claro, moderno e espaçado --- */
     body {
-        background: #f8f9fa;
-        color: #2b3440;
+        background: #fdfdfd;
+        color: #181818;
         font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
 
@@ -214,15 +214,86 @@ document.addEventListener('DOMContentLoaded', function() {
         initialView: 'resourceTimelineWeek',
         nowIndicator: true,
         stickyHeaderDates: true,
+        displayEventTime: false,
         height: 'auto',
         expandRows: true,
         resourceAreaWidth: '12%',
         resourceAreaHeaderContent: 'Acomodações',
 
+        // DESTAQUE PARA FINAIS DE SEMANA E DIA ATUAL ---
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
             right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
+        },
+
+        slotLaneDidMount: function(arg) {
+            // Pega o dia da semana (0=Domingo, 6=Sábado)
+            const day = new Date(arg.date).getDay();
+
+            // --- Destaque para o dia atual (prioridade maior) ---
+            if (arg.isToday) {
+                arg.el.style.backgroundColor = 'rgba(237, 233, 254, 0.4)'; // Lilás claro com transparência
+                arg.el.style.backgroundClip = 'padding-box';
+                arg.el.style.borderLeft = '3px solid #7c3aed'; // Borda roxa à esquerda
+                arg.el.style.boxShadow = 'inset 0 0 8px rgba(124, 58, 237, 0.15)'; // Sombra interna sutil
+            }
+            // Pinta o fundo dos sábados (6) e domingos (0) - se não for hoje
+            else if (day === 6 || day === 0) {
+                arg.el.style.backgroundColor = 'rgba(200, 230, 200, 0.3)'; // Cinza claro com transparência
+                arg.el.style.backgroundClip = 'padding-box'; // Não sobrepõe as bordas
+            }
+        },
+
+        // POPOVER COM INFORMAÇÕES DA RESERVA ---
+        eventMouseEnter: function(info) {
+            
+            // Pega as propriedades que criamos na API
+            const props = info.event.extendedProps;
+            let titleHtml = '';
+            let contentHtml = '';
+
+            // Monta o conteúdo baseado no 'tipo'
+            if (props.tipo === 'reserva') {
+                titleHtml = `Reserva #${props.reserva_pk}`;
+                contentHtml = `
+                    <strong>Cliente:</strong> ${info.event.title.split(' - ')[1]}<br>
+                    <strong>Status:</strong> ${props.status_display}<br>
+                    <strong>Período:</strong> ${props.checkin_fmt} até ${props.checkout_fmt}<br>
+                    <strong>Hóspedes:</strong> ${props.hospedes_txt}
+                `;
+            // Lógica do Evento
+            } else if (props.tipo === 'evento') {
+                titleHtml = `Evento: ${info.event.title}`; // Campo: Nome Evento
+                contentHtml = `
+                    <strong>Cliente:</strong> ${props.cliente_nome}<br>
+                    <strong>Espaços:</strong> ${props.espacos_str}<br>
+                    <strong>Período:</strong> ${props.checkin_fmt} até ${props.checkout_fmt}<br>
+                    <strong>Status:</strong> ${props.status_display}<br>
+                    <strong>Convidados:</strong> ${props.convidados_txt}
+                `;
+            } else {
+                contentHtml = "Informações não disponíveis.";
+            }
+
+            // Usa o popover do Bootstrap para exibir as informações
+            info.el._popover = new bootstrap.Popover(info.el, {
+                title: titleHtml,
+                content: contentHtml,
+                trigger: 'hover',
+                placement: 'top',
+                html: true,
+                container: 'body'
+            });
+            info.el._popover.show();
+        },
+        
+        // A função eventMouseLeave continua a mesma
+        eventMouseLeave: function(info) {
+            if (info.el._popover) {
+                info.el._popover.dispose();
+                info.el._popover = null;
+            }
         },
 
         // 👇 Configurações específicas de exibição
@@ -245,72 +316,50 @@ document.addEventListener('DOMContentLoaded', function() {
         slotLabelFormat: { weekday: 'short', day: 'numeric'},
 
         slotLabelDidMount: function(arg) {
-        // --- Estilo base dos rótulos (dias da semana) ---
-        arg.el.style.fontWeight = '600';
-        arg.el.style.color = '#374151';            // Cinza escuro moderno (legível em fundo claro)
-        arg.el.style.backgroundColor = '#f8f9fa';  // Fundo cinza-claro suave
-        arg.el.style.border = '1px solid #e0e7ff'; // Borda azul bem clarinha
-        arg.el.style.padding = '2px 10px';
-        arg.el.style.textAlign = 'center';
-        arg.el.style.fontSize = '0.9rem';
-        arg.el.style.letterSpacing = '0.3px';
-        arg.el.style.transition = 'all 0.2s ease-in-out';
+            // --- Estilo base dos rótulos (dias da semana) ---
+            arg.el.style.alignItems = 'center';
+            arg.el.style.height = '100%';
+            arg.el.style.fontWeight = '600';
+            arg.el.style.color = '#374151';            // Cinza escuro moderno (legível em fundo claro)
+            arg.el.style.backgroundColor = '#f8f9fa';  // Fundo cinza-claro suave
+            arg.el.style.border = '1px solid #e0e7ff'; // Borda azul bem clarinha
+            arg.el.style.padding = '2px 10px';
+            arg.el.style.textAlign = 'center';
+            arg.el.style.fontSize = '0.9rem';
+            arg.el.style.letterSpacing = '0.3px';
+            arg.el.style.transition = 'all 0.2s ease-in-out';
 
-        // --- Remove o azul e o sublinhado dos links padrão do navegador ---
-        const link = arg.el.querySelector('a');
-        if (link) {
-            link.style.color = '#374151';          // Mesma cor do texto
-            link.style.textDecoration = 'none';    // Remove o sublinhado
-            link.style.fontWeight = '600';
-        }
+            // --- Remove o azul e o sublinhado dos links padrão do navegador ---
+            const link = arg.el.querySelector('a');
+            if (link) {
+                link.style.color = '#374151';          // Mesma cor do texto
+                link.style.textDecoration = 'none';    // Remove o sublinhado
+                link.style.fontWeight = '600';
+            }
 
-        // --- Destaque sutil para o dia atual ---
-        if (arg.isToday) {
-            arg.el.style.backgroundColor = '#ede9fe'; // Lilás claro
-            arg.el.style.border = '2px solid #7c3aed'; // Roxo elegante
-            arg.el.style.color = '#4c1d95';
-            arg.el.style.fontWeight = '700';
-            arg.el.style.boxShadow = '0 0 8px rgba(124,58,237,0.25)';
-        }
-
-        // --- Efeito hover suave para dar mais vida ---
-        arg.el.addEventListener('mouseenter', () => {
-            arg.el.style.backgroundColor = '#edf2ff';
-            arg.el.style.color = '#1e40af';
-            if (link) link.style.color = '#1e40af';
-        });
-        arg.el.addEventListener('mouseleave', () => {
-            arg.el.style.backgroundColor = arg.isToday ? '#e7f1ff' : '#f8f9fa';
-            arg.el.style.color = '#374151';
-            if (link) link.style.color = '#374151';
-        });
+            // --- Efeito hover suave para dar mais vida ---
+            arg.el.addEventListener('mouseenter', () => {
+                arg.el.style.backgroundColor = '#edf2ff';
+                arg.el.style.color = '#1e40af';
+                if (link) link.style.color = '#1e40af';
+            });
+            arg.el.addEventListener('mouseleave', () => {
+                arg.el.style.backgroundColor = arg.isToday ? '#e7f1ff' : '#f8f9fa';
+                arg.el.style.color = '#374151';
+                if (link) link.style.color = '#374151';
+            });
         },
 
         events: function(fetchInfo, successCallback, failureCallback) {
             fetch("{% url 'api_reservas_calendario' %}")
                 .then(response => response.json())
                 .then(data => {
-                    const eventos = (data.eventos || []).map((e, i) => {
-                        let base = e.color ? ensureHex(e.color) : DEFAULT_PASTEL_PALETTE[(e.resourceId || i) % DEFAULT_PASTEL_PALETTE.length];
-                        base = ensureHex(base);
-                        const bg = mixHex(base, '#FFFFFF', 0.60);
-                        const border = mixHex(base, '#000000', 0.12);
-                        const textColor = readableTextColor(bg);
-
-                        return Object.assign({}, e, {
-                            backgroundColor: bg,
-                            borderColor: border,
-                            textColor: textColor,
-                            display: 'block'
-                        });
-                    });
-
-                    renderLegend();
-                    successCallback(eventos);
+                    // Passa a lista de eventos para o calendário
+                    successCallback(data.eventos); 
                 })
-                .catch(err => {
-                    console.error('Erro ao carregar eventos do calendário:', err);
-                    failureCallback(err);
+                .catch(error => {
+                    console.error("Erro ao buscar eventos:", error);
+                    failureCallback(error);
                 });
         },
 

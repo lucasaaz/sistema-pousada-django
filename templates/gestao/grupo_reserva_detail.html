@@ -1,0 +1,92 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/grupo_reserva_detail.html                        -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Detalhes do Grupo: {{ grupo.nome_grupo }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div>
+        <h1 class="h2">Grupo: {{ grupo.nome_grupo }}</h1>
+        <p class="text-muted">Cliente Responsável: {{ grupo.cliente_responsavel.nome_completo }}</p>
+    </div>
+    <div>
+        <a href="{% url 'grupo_reserva_list' %}" class="btn btn-sm btn-outline-secondary">Voltar para Lista</a>
+        <a href="{% url 'reserva_add' %}?grupo_id={{ grupo.pk }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Adicionar Acomodação ao Grupo
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="m-0 fw-bold">Reservas no Grupo ({{ reservas_do_grupo.count }})</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Acomodação</th>
+                                <th>Hóspede</th>
+                                <th>Check-in</th>
+                                <th>Check-out</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reserva in reservas_do_grupo %}
+                            <tr>
+                                <td><a href="{% url 'reserva_detail' reserva.pk %}" class="nav-link">{{ reserva.acomodacao.nome_display }}</a></td>
+                                <td><a href="{% url 'reserva_detail' reserva.pk %}" class="nav-link">{{ reserva.cliente.nome_completo }}</a></td>
+                                <td>{{ reserva.data_checkin|date:"d/m/y" }}</td>
+                                <td>{{ reserva.data_checkout|date:"d/y" }}</td>
+                                <td>
+                                    <span class="badge" style="background-color: {{ reserva.status_color }};">{{ reserva.get_status_display }}</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">Nenhuma reserva adicionada a este grupo ainda.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="m-0 fw-bold">Resumo Financeiro do Grupo</h6>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total Diárias:</span>
+                    <strong>R$ {{ resumo_financeiro.total_diarias|floatformat:2 }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>(+) Consumo:</span>
+                    <strong>R$ {{ resumo_financeiro.total_consumo|floatformat:2 }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total a Pagar:</span>
+                    <strong>R$ {{ resumo_financeiro.total_a_pagar|floatformat:2 }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total Pago:</span>
+                    <strong class="text-success">R$ {{ resumo_financeiro.total_pago|floatformat:2 }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between list-group-item-warning">
+                    <span>Saldo Devedor:</span>
+                    <strong class="text-danger">R$ {{ resumo_financeiro.saldo_devedor|floatformat:2 }}</strong>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

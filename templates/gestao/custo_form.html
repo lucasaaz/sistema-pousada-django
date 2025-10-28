@@ -1,0 +1,35 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/custo_form.html                                  -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% block title %}Editar Custo{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="pt-3 pb-2 mb-3 border-bottom"><h1 class="h2">Editar Custo</h1></div>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
+                        {{ form.descricao }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.valor.id_for_label }}" class="form-label">{{ form.valor.label }}</label>
+                        {{ form.valor }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.data_custo.id_for_label }}" class="form-label">{{ form.data_custo.label }}</label>
+                        {{ form.data_custo }}
+                    </div>
+                </div>
+                <div class="card-footer bg-white text-end px-0 pt-4 mt-2">
+                    <a href="{% url 'evento_detail' evento.pk %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

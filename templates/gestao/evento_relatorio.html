@@ -1,0 +1,467 @@
+<!-- ========================================================================== -->
+<!-- ARQUIVO: templates/gestao/evento_relatorio.html                            -->
+<!-- ========================================================================== -->
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Relatório de Eventos{% endblock %}
+{% block content %}
+<main class="px-md-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Relatório de Eventos</h1>
+        <a href="{% url 'eventos_dashboard' %}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="start_date" class="form-label">De:</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control" value="{{ start_date }}">
+                </div>
+                <div class="col-md-5">
+                    <label for="end_date" class="form-label">Até:</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date }}">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow h-100 py-2 card-indicator card-indicator-gray">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div>
+                                <a class="nav-link text-xs fw-bold text-gray mb-1">
+                                    Total Recebido
+                                </a>
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">R$ {{ total_faturado|intcomma }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <a class="nav-link text-xs fw-bold text-gray text-uppercase mb-1">
+                                <i class="bi bi-cash-stack fs-2 text-gray-300"></i>
+                            </a>
+                        </div>  
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow h-100 py-2 card-indicator card-indicator-gray">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div>
+                                <a class="nav-link text-xs fw-bold text-gray mb-1">
+                                    Total a Receber 
+                                </a>
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">R$ {{ total_a_receber|intcomma }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <a class="nav-link text-xs fw-bold text-gray text-uppercase mb-1">
+                                <i class="bi bi-currency-exchange fs-2 text-gray-300"></i>
+                            </a>
+                        </div>  
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow h-100 py-2 card-indicator card-indicator-gray">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div>
+                                <a class="nav-link text-xs fw-bold text-gray mb-1">
+                                    Nº de Eventos (Iniciados)
+                                </a>
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">{{ num_eventos }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <a class="nav-link text-xs fw-bold text-gray text-uppercase mb-1">
+                                <i class="bi-clipboard-data fs-2 text-gray-300"></i>
+                            </a>
+                        </div>  
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow h-100 py-2 card-indicator card-indicator-gray">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div>
+                                <a class="nav-link text-xs fw-bold text-gray mb-1">
+                                    Média de Convidados
+                                </a>
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">{{ media_convidados|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <a class="nav-link text-xs fw-bold text-gray text-uppercase mb-1">
+                                <i class="bi bi-people fs-2 text-gray-300"></i>
+                            </a>
+                        </div>  
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Recebimento Mensal (Baseado em Pagamentos)</h6>
+                    <canvas id="faturamentoChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Receita por Categoria (Baseado no Negociado)</h6>
+                    <canvas id="receitaCategoriaChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-5 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Top 5 Espaços Mais Utilizados</h6>
+                    <canvas id="espacosChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Top 5 Itens/Serviços Mais Utilizados</h6>
+                    <canvas id="itensChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text-fill me-2"></i>Extrato de Pagamentos de Eventos</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'evento_relatorio' %}" class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <input type="search" class="form-control" name="q" placeholder="Buscar por Nome do Evento, Cliente ou CPF" value="{{ query|default:'' }}">
+                        </div>
+                        <div class="col-md-5">
+                            <label for="extrato_start_date" class="form-label small">Pagamentos De:</label>
+                            <input type="date" class="form-control" name="start_date" id="extrato_start_date" value="{{ start_date|default:'' }}">
+                        </div>
+                        <div class="col-md-5">
+                            <label for="extrato_end_date" class="form-label small">Pagamentos Até:</label>
+                            <input type="date" class="form-control" name="end_date" id="extrato_end_date" value="{{ end_date|default:'' }}">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-primary w-100" type="submit">Filtrar Extrato</button>
+                            {% if query or request.GET.start_date or request.GET.end_date %}
+                            <a href="{% url 'evento_relatorio' %}" class="btn btn-outline-secondary ms-2" title="Limpar Filtros">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                    
+                    <div class="accordion" id="extratoEventosAccordion">
+                        {% for item in page_obj %} {# page_obj agora contém a lista de dicts agrupados #}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading-evento-{{ item.evento.pk }}">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-evento-{{ item.evento.pk }}">
+                                    <div class="w-100 d-flex justify-content-between pe-3">
+                                        <span class="me-3">
+                                            <i class="bi bi-calendar-event me-1"></i> <strong>{{ item.evento.nome_evento }}</strong>
+                                            <small class="text-muted ms-2">({{ item.evento.cliente.nome_completo }})</small>
+                                            Data: <strong>{{ item.evento.data_inicio|date:"d/m"}} à {{ item.evento.data_fim|date:"d/m"}}</strong>
+                                        </span>
+                                        <span class="fw-bold text-success">Total Pago: R$ {{ item.total_pago|intcomma }}</span>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse-evento-{{ item.evento.pk }}" class="accordion-collapse collapse" data-bs-parent="#extratoEventosAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><small><strong>Cliente:</strong> {{ item.evento.cliente.nome_completo }}</small></p>
+                                            <p><small><strong>Período:</strong> {{ item.evento.data_inicio|date:"d/m/Y H:i" }} a {{ item.evento.data_fim|date:"d/m/Y H:i" }}</small></p>
+                                            <p><small><strong>Convidados:</strong> {{ item.evento.numero_convidados }}</small></p>
+                                            <p><small><strong>Status:</strong> {{ item.evento.get_status_display }}</small></p>
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <p class="mb-1"><small>Valor Negociado: R$ {{ item.evento.valor_negociado|intcomma }}</small></p>
+                                            
+                                            <p class="mb-1"><small>Custos Adicionais: R$ {{ item.total_custos_do_evento|intcomma }}</small></p>
+                                            
+                                            <p class="mb-1 fw-bold">Total a Receber: R$ {{ item.total_a_receber|intcomma }}</p>
+                                            <p class="mb-1 fw-bold text-success">Total Pago: R$ {{ item.total_pago|intcomma }}</p>
+                                            
+                                            {# Usa o saldo calculado na view (sem erros de 'with') #}
+                                            <p class="mb-0 fw-bold {% if item.saldo_devedor > 0 %}text-danger{% else %}text-muted{% endif %}">
+                                                Saldo Devedor: R$ {{ item.saldo_devedor|intcomma }}
+                                            </p>
+                                            
+                                            <a href="{% url 'evento_detail' item.evento.pk %}" class="btn btn-outline-secondary me-2">
+                                                Ver Detalhes do Evento <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <br>
+                                    <h6><i class="bi bi-cash-stack me-1"></i>Pagamentos</h6>
+                                    <table class="table table-sm table-bordered table-striped">
+                                        <thead>
+                                            <tr><th>Data</th><th>Forma</th><th class="text-end">Valor (R$)</th></tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for pag in item.pagamentos %}
+                                            <tr>
+                                                <td>{{ pag.data_pagamento|date:"d/m/Y H:i" }}</td>
+                                                <td>{{ pag.forma_pagamento.nome }}</td>
+                                                <td class="text-end">{{ pag.valor|intcomma }}</td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr><td colspan="3" class="text-center small text-muted">Nenhum pagamento registrado neste período para este evento.</td></tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+
+                                    <h6><i class="bi bi-currency-exchange me-1"></i>Custos Adicionais</h6>
+                                    <table class="table table-sm table-bordered table-striped">
+                                        <thead>
+                                            <tr><th>Data</th><th>Descrição</th><th class="text-end">Valor (R$)</th></tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for custo in item.custos %}
+                                            <tr>
+                                                <td>{{ custo.data_custo|date:"d/m/Y" }}</td>
+                                                <td>{{ custo.descricao }}</td>
+                                                <td class="text-end">{{ custo.valor|intcomma }}</td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr><td colspan="3" class="text-center small text-muted">Nenhum custo adicional registrado para este evento.</td></tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-center text-muted my-4">Nenhum evento com pagamentos encontrado para os filtros aplicados.</p>
+                        {% endfor %}
+                    </div> {# Fim do Acordeão #}
+                </div> {# Fim do Card Body #}
+
+                {% if page_obj.paginator.num_pages > 1 %}
+                <div class="card-footer bg-light border-top-0">
+                    <nav aria-label="Navegação do extrato de eventos">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page=1&amp;{{ request.GET.urlencode }}">&laquo; Primeira</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&amp;{{ request.GET.urlencode }}">Anterior</a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">&laquo; Primeira</span></li>
+                                <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                            {% endif %}
+                            
+                            <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&amp;{{ request.GET.urlencode }}">Próxima</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&amp;{{ request.GET.urlencode }}">Última &raquo;</a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+                                <li class="page-item disabled"><span class="page-link">Última &raquo;</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div> 
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<style>
+    :root {
+        --bs-primary-soft: #e7f1ff;
+        --bs-success-soft: #e5f8f0;
+        --bs-danger-soft: #fce8e9;
+        --bs-info-soft: #e3f6f8;
+        --bs-warning-soft: #fff8e1;
+        --bs-secondary-soft: #f8f9fa;
+        --bs-font-sans-serif: 'Poppins', sans-serif;
+    }
+
+    body {
+        background-color: #f8f9fa;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .card {
+        border: none;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .card.mudar-cor {
+        background-color: #fcfcfc;
+    }
+    
+    .card.card-indicator {
+        border-left-width: 4px;
+        border-left-style: solid;
+    }
+    .card-indicator-primary { border-color: var(--bs-primary); }
+    .card-indicator-success { border-color: var(--bs-success); }
+    .card-indicator-info { border-color: var(--bs-info); }
+    .card-indicator-warning { border-color: var(--bs-warning); }
+
+
+    .shadow {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 1.5rem rgba(0, 0, 0, 0.12) !important;
+    }
+    
+    .text-gray-300 { color: #dddfeb !important; }
+
+    .text-xs { 
+        font-size: 1rem;
+        color: #646464;
+    }
+    
+    .bg-primary-soft { background-color: var(--bs-primary-soft); }
+    .bg-success-soft { background-color: var(--bs-success-soft); }
+    .bg-danger-soft { background-color: var(--bs-danger-soft); }
+    .bg-secondary-soft { background-color: var(--bs-secondary-soft); }
+
+
+    .nav-pills .nav-link {
+        color: #6c757d;
+        font-weight: 400;
+        border-radius: 0.5rem;
+    }
+
+    .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+        color: #fff;
+        background-color: var(--bs-primary);
+    }
+    
+    .badge {
+        font-weight: 500;
+        padding: 0.4em 0.7em;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+   
+    // Gráfico de Recebimento Mensal
+    const faturamentoData = JSON.parse('{{ faturamento_chart_json|safe }}');
+    const faturamentoCtx = document.getElementById('faturamentoChart');
+    if (faturamentoCtx && faturamentoData.data.length > 0) {
+        new Chart(faturamentoCtx, {
+            type: 'bar',
+            data: {
+                labels: faturamentoData.labels,
+                datasets: [{
+                    label: 'Recebimento (R$)',
+                    data: faturamentoData.data,
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)', // Verde
+                }]
+            },
+            options: { responsive: true}
+        });
+    }
+
+    // === NOVO GRÁFICO: Receita por Categoria ===
+    const receitaCategoriaData = JSON.parse('{{ receita_categoria_json|safe }}');
+    const receitaCategoriaCtx = document.getElementById('receitaCategoriaChart');
+    // Verifica se há dados (soma maior que zero)
+    if (receitaCategoriaCtx && receitaCategoriaData.data.reduce((a, b) => a + b, 0) > 0) { 
+        new Chart(receitaCategoriaCtx, {
+            type: 'pie', 
+            data: {
+                labels: receitaCategoriaData.labels,
+                datasets: [{
+                    data: receitaCategoriaData.data,
+                    backgroundColor: [ 
+                        'rgba(0, 123, 255, 0.7)', // Azul (Contratos)
+                        'rgba(255, 193, 7, 0.7)'  // Amarelo (Custos)
+                    ], 
+                }]
+            },
+            options: { responsive: true}
+        });
+    } else if (receitaCategoriaCtx) {
+        receitaCategoriaCtx.parentNode.innerHTML = '<p class="text-center text-muted mt-3">Sem dados de receita para exibir.</p>';
+    }
+
+    // Gráfico de Espaços
+    const espacosData = JSON.parse('{{ espacos_chart_json|safe }}');
+    const espacosCtx = document.getElementById('espacosChart');
+    if (espacosCtx && espacosData.data.length > 0) {
+        new Chart(espacosCtx, {
+            type: 'pie',
+            data: {
+                labels: espacosData.labels,
+                datasets: [{ data: espacosData.data }]
+            },
+            options: { responsive: true}
+        });
+    } else if (espacosCtx) {
+        espacosCtx.parentNode.innerHTML = '<p class="text-center text-muted mt-3">Nenhum espaço utilizado no período.</p>';
+    }
+    
+    // Gráfico de Itens
+    const itensData = JSON.parse('{{ itens_chart_json|safe }}');
+    const itensCtx = document.getElementById('itensChart');
+    if (itensCtx && itensData.data.length > 0) {
+        new Chart(itensCtx, {
+            type: 'doughnut',
+            data: {
+                labels: itensData.labels,
+                datasets: [{ data: itensData.data }]
+            },
+            options: { responsive: true}
+        });
+    } else if (itensCtx) {
+        itensCtx.parentNode.innerHTML = '<p class="text-center text-muted mt-3">Nenhum item/serviço utilizado no período.</p>';
+    }
+});
+</script>
+{% endblock %}
