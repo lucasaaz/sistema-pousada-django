@@ -327,6 +327,7 @@ def calcular_tarifa_view(request):
 
         # 4. Cálculo da Tarifa Base
         chave_preco = acomodacao.tipo.chave_de_preco
+        print(f"DEBUG: Chave de preço obtida da acomodação tipo '{acomodacao.tipo.nome}': '{chave_preco}'")
         valor_total, detalhamento_base = calcular_tarifa_completa(
             chave_de_preco=chave_preco,
             checkin_date=checkin_date,
