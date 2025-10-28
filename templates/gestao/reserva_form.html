@@ -159,18 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return; 
         }
         
-        // Verifica se todos os campos necessários estão preenchidos
         if (!acomodacaoId || !checkin || !checkout || (numAdultos + numCriancas12) === 0) {
-             // --- CORREÇÃO ---
-            // Limpa o VALOR do INPUT do formulário e o detalhamento
-            if (valorInput) { 
-                valorInput.value = '0.00'; // Ou '' se preferir vazio
-            } 
-            if (detalhamentoDisplay) {
-                detalhamentoDisplay.textContent = 'Preencha todos os campos para calcular.'; // Mensagem mais clara
-            }
-            // --- FIM DA CORREÇÃO ---
-            return; // Interrompe o cálculo se faltar dados
+            valorDisplay.textContent = 'R$ 0,00';
+            return;
         }
 
         const url = `{% url 'api_calcular_tarifa' %}?acomodacao_id=${acomodacaoId}&checkin=${checkin}&checkout=${checkout}&num_adultos=${numAdultos}&num_criancas_12=${numCriancas12}&cliente_id=${clienteId}`;
