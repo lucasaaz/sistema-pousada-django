@@ -66,6 +66,8 @@ def calcular_tarifa_completa(chave_de_preco, checkin_date, checkout_date, num_ad
 
     num_diarias = (checkout_date - checkin_date).days
     valor_total_calculado = 0
+    print(f"\n--- Calculando Tarifa ---")
+    print(f"Chave: {chave_de_preco}, Checkin: {checkin_date}, Checkout: {checkout_date}, Adultos: {num_adultos}, Crianças: {num_criancas_12}, Diárias: {num_diarias}")
     
     # --- LÓGICA DE CÁLCULO DIA A DIA ---
     for i in range(num_diarias):
@@ -117,5 +119,6 @@ def calcular_tarifa_completa(chave_de_preco, checkin_date, checkout_date, num_ad
         regras_periodo = regras_tipo.get(periodo_checkin, {})
         if "pacote_2_dias" in regras_periodo:
             valor_total_calculado = regras_periodo["pacote_2_dias"]
-
+            
+    print(f"Valor Total Final (antes de ajuste): {valor_total_calculado}")
     return valor_total_calculado, []

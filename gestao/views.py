@@ -314,12 +314,6 @@ def calcular_tarifa_view(request):
         num_adultos = int(request.GET.get('num_adultos', 0))
         num_criancas_12 = int(request.GET.get('num_criancas_12', 0))
         num_pessoas = num_adultos + num_criancas_12
-
-        # Converte as strings para datetime INICIALMENTE INGÊNUOS
-        checkin_naive = datetime.fromisoformat(checkin_str.replace('T', ' ')) 
-        checkout_naive = datetime.fromisoformat(checkout_str.replace('T', ' '))
-        checkin_date = timezone.make_aware(checkin_naive) 
-        checkout_date = timezone.make_aware(checkout_naive)
         
         # 2. Converte e busca objetos no banco
         acomodacao = Acomodacao.objects.select_related('tipo').get(pk=acomodacao_id)
@@ -346,8 +340,8 @@ def calcular_tarifa_view(request):
         # 5. Busca por Períodos Tarifários aplicáveis
         periodos_aplicaveis = PeriodoTarifario.objects.filter(
             ativo=True,
-            data_inicio__lte=checkout_date,
-            data_fim__gte=checkin_date
+            data_inicio__lte=checkout_date.date(),
+            data_fim__gte=checkin_date.date()
         )
 
         # 6. Aplica a regra com a maior prioridade
